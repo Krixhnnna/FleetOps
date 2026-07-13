@@ -10,13 +10,23 @@ FleetOps is a fleet management web application designed to simplify the manageme
 - Driver Management
 - Responsive User Interface
 
+## Repository Structure
+
+This repository is structured as a MERN stack monorepo, divided into separate frontend and backend workspaces:
+
+```text
+FleetOps/
+├── frontend/             # React + Vite + Tailwind CSS v4 Client
+└── backend/              # Node.js + Express REST API
+```
+
 ## Technology Stack
 
 ### Frontend
 - React
 - Vite
 - HTML
-- CSS
+- CSS (Tailwind CSS v4)
 - JavaScript
 
 ### Backend
@@ -25,22 +35,23 @@ FleetOps is a fleet management web application designed to simplify the manageme
 
 ## Getting Started
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   ```
+### 1. Frontend Client
+To run the React dashboard client:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-4. Open the application in your browser.
+### 2. Backend Server
+To configure and run the Express server:
+1. Create a `.env` file in the `backend/` directory based on `backend/.env.example`.
+2. Run the development server:
+```bash
+cd backend
+npm install
+npm run dev
+```
 
 ## Team
 
