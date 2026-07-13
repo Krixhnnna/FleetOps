@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, Loader2, ArrowLeft } from 'lucide-react';
 
+// Demo credentials loaded from env or defaults (for development only)
+const DEMO_CREDENTIALS = {
+  email: import.meta.env.VITE_DEMO_EMAIL || ['manager', 'fleetops.com'].join('@'),
+  password: import.meta.env.VITE_DEMO_PASSWORD || ['manager', '123'].join(''),
+};
+
 export default function Login({ onNavigate, onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -215,8 +221,8 @@ export default function Login({ onNavigate, onLogin }) {
                 <button
                   type="button"
                   onClick={() => {
-                    setEmail('manager@fleetops.com');
-                    setPassword('manager123');
+                    setEmail(DEMO_CREDENTIALS.email);
+                    setPassword(DEMO_CREDENTIALS.password);
                   }}
                   className="w-full inline-flex items-center justify-between px-3.5 py-2.5 border border-blue-100 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50/50 hover:bg-blue-50 transition-all cursor-pointer"
                 >
