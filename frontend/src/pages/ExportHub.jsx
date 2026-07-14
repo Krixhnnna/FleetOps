@@ -27,14 +27,16 @@ export default function ExportHub({ onNavigate, user }) {
     setSuccess(false);
 
     try {
-      const roleToSend = getBackendRole(user?.role);
+      const token = localStorage.getItem('fleetops_token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       
       // Hit the backend endpoint
       const response = await fetch(`http://localhost:5000/api/reports/export-csv?range=${dateRange}`, {
         method: 'GET',
-        headers: {
-          'x-user-role': roleToSend
-        }
+        headers: headers
       });
 
       if (!response.ok) {
