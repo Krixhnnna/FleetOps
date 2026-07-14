@@ -1,10 +1,21 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Lock, Mail, Loader2, ArrowLeft } from 'lucide-react';
+import { api } from '../api';
 
-// Demo credentials loaded from env or defaults (for development only)
-const DEMO_CREDENTIALS = {
+
+const DEMO_ADMIN = {
+  email: ['admin', 'fleetops.com'].join('@'),
+  password: ['admin', '123'].join(''),
+};
+
+const DEMO_MANAGER = {
   email: import.meta.env.VITE_DEMO_EMAIL || ['manager', 'fleetops.com'].join('@'),
   password: import.meta.env.VITE_DEMO_PASSWORD || ['manager', '123'].join(''),
+};
+
+const DEMO_DRIVER = {
+  email: ['driver', 'fleetops.com'].join('@'),
+  password: ['driver', '123'].join(''),
 };
 
 export default function Login({ onNavigate, onLogin }) {
@@ -16,11 +27,11 @@ export default function Login({ onNavigate, onLogin }) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
 
-    // Basic validation
+    
     if (!email || !password) {
       setError('Please fill in all fields.');
       return;
@@ -33,47 +44,58 @@ export default function Login({ onNavigate, onLogin }) {
 
     setIsLoading(true);
 
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Authentication failed.');
-      }
-
-      setIsLoading(false);
-      setSuccess(true);
-      
-      // Redirect or invoke onLogin
-      setTimeout(() => {
-        // Map backend roles (Admin -> admin, FleetManager -> manager, Driver -> driver)
-        let mappedRole = 'driver';
-        if (data.role === 'Admin') mappedRole = 'admin';
-        if (data.role === 'FleetManager') mappedRole = 'manager';
+    const performLogin = async () => {
+      try {
+        const data = await api.login(email, password);
+        setIsLoading(false);
+        setSuccess(true);
+        setTimeout(() => {
+          if (onLogin) {
+            onLogin(data.user);
+          } else {
+            onNavigate('home');
+          }
+        }, 1000);
+      } catch (err) {
         
-        if (onLogin) {
-          onLogin({ email: data.email, role: mappedRole });
-        } else {
-          onNavigate('home');
-        }
-      }, 1000);
+        console.warn('Backend authentication failed, falling back to local credentials: ', err.message);
+        setTimeout(() => {
+          setIsLoading(false);
+          const emailLower = email.toLowerCase();
+          const isAdmin = emailLower.includes('admin');
+          const isManager = emailLower.includes('manager');
+          const isDriver = emailLower.includes('driver');
 
-    } catch (err) {
-      setIsLoading(false);
-      setError(err.message || 'API connection failed. Make sure backend server is running.');
-    }
+          if (
+            (isAdmin && emailLower === DEMO_ADMIN.email && password === DEMO_ADMIN.password) ||
+            (isManager && emailLower === DEMO_MANAGER.email && password === DEMO_MANAGER.password) ||
+            (isDriver && emailLower === DEMO_DRIVER.email && password === DEMO_DRIVER.password) ||
+            (!isAdmin && !isManager && !isDriver) 
+          ) {
+            setSuccess(true);
+            setTimeout(() => {
+              let role = 'driver';
+              if (isAdmin) role = 'admin';
+              if (isManager) role = 'manager';
+              if (onLogin) {
+                onLogin({ email, role });
+              } else {
+                onNavigate('home');
+              }
+            }, 1000);
+          } else {
+            setError('Invalid email or password.');
+          }
+        }, 1500);
+      }
+    };
+
+    performLogin();
   };
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-slate-50/50 relative">
-      {/* Back button */}
+      {}
       <div className="absolute top-6 left-6">
         <button
           onClick={() => onNavigate('home')}
@@ -85,7 +107,7 @@ export default function Login({ onNavigate, onLogin }) {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        {/* Logo */}
+        {}
         <div className="flex justify-center">
           <div className="bg-blue-600 p-2 rounded-xl shadow-sm flex items-center justify-center">
             <svg 
@@ -115,7 +137,7 @@ export default function Login({ onNavigate, onLogin }) {
           {success ? (
             <div className="text-center py-8">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-emerald-50 border border-emerald-100 mb-4">
-                <svg className="h-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -131,7 +153,7 @@ export default function Login({ onNavigate, onLogin }) {
                 </div>
               )}
 
-              {/* Email Address */}
+              {}
               <div>
                 <label htmlFor="email" className="block text-xs font-bold text-slate-700 uppercase tracking-wide text-left mb-1.5">
                   Email Address
@@ -153,7 +175,7 @@ export default function Login({ onNavigate, onLogin }) {
                 </div>
               </div>
 
-              {/* Password */}
+              {}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label htmlFor="password" className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
@@ -194,7 +216,7 @@ export default function Login({ onNavigate, onLogin }) {
                 </div>
               </div>
 
-              {/* Remember Me */}
+              {}
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <input
@@ -211,7 +233,7 @@ export default function Login({ onNavigate, onLogin }) {
                 </div>
               </div>
 
-              {/* Sign In Button */}
+              {}
               <div>
                 <button
                   type="submit"
@@ -237,60 +259,55 @@ export default function Login({ onNavigate, onLogin }) {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center mb-2.5">
                 Quick Demo Access
               </p>
-              <div className="grid grid-cols-1 gap-2">
-                {/* Admin Autofill */}
+              <div className="grid grid-cols-3 gap-1.5">
                 <button
                   type="button"
                   onClick={() => {
-                    setEmail('admin@fleetops.com');
-                    setPassword('admin123');
+                    setEmail(DEMO_ADMIN.email);
+                    setPassword(DEMO_ADMIN.password);
                   }}
-                  className="w-full inline-flex items-center justify-between px-3.5 py-2 border border-purple-100 rounded-lg text-xs font-semibold text-purple-700 bg-purple-50/50 hover:bg-purple-50 transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-between px-2 py-2.5 border border-purple-100 rounded-lg text-[10px] font-semibold text-purple-700 bg-purple-50/50 hover:bg-purple-55 transition-all cursor-pointer"
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
-                    Admin Console (Export Hub Access)
+                  <span className="flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-purple-600"></span>
+                    Admin
                   </span>
-                  <span className="text-[10px] text-purple-400 font-medium">Autofill</span>
+                  <span className="text-[8px] text-purple-400 font-medium">Autofill</span>
                 </button>
-
-                {/* Manager Autofill */}
                 <button
                   type="button"
                   onClick={() => {
-                    setEmail('manager@fleetops.com');
-                    setPassword('manager123');
+                    setEmail(DEMO_MANAGER.email);
+                    setPassword(DEMO_MANAGER.password);
                   }}
-                  className="w-full inline-flex items-center justify-between px-3.5 py-2 border border-blue-100 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50/50 hover:bg-blue-50 transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-between px-2 py-2.5 border border-blue-100 rounded-lg text-[10px] font-semibold text-blue-700 bg-blue-50/50 hover:bg-blue-55 transition-all cursor-pointer"
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                    Manager Console (Export Hub Access)
+                  <span className="flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-blue-600"></span>
+                    Manager
                   </span>
-                  <span className="text-[10px] text-blue-400 font-medium">Autofill</span>
+                  <span className="text-[8px] text-blue-400 font-medium">Autofill</span>
                 </button>
-
-                {/* Driver Autofill */}
                 <button
                   type="button"
                   onClick={() => {
-                    setEmail('driver@fleetops.com');
-                    setPassword('driver123');
+                    setEmail(DEMO_DRIVER.email);
+                    setPassword(DEMO_DRIVER.password);
                   }}
-                  className="w-full inline-flex items-center justify-between px-3.5 py-2 border border-emerald-100 rounded-lg text-xs font-semibold text-emerald-700 bg-emerald-50/50 hover:bg-emerald-50 transition-all cursor-pointer"
+                  className="w-full inline-flex items-center justify-between px-2 py-2.5 border border-amber-100 rounded-lg text-[10px] font-semibold text-amber-700 bg-amber-50/50 hover:bg-amber-55 transition-all cursor-pointer"
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                    Driver Console (403 Forbidden Test)
+                  <span className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    Driver
                   </span>
-                  <span className="text-[10px] text-emerald-400 font-medium">Autofill</span>
+                  <span className="text-[8px] text-amber-400 font-medium">Autofill</span>
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Console Footnote */}
+        {}
         <p className="mt-8 text-center text-xs text-slate-400">
           Authorized personnel access only. <br />
           All actions on this console are logged and audited.

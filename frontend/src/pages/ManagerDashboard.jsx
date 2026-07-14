@@ -1,26 +1,24 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Truck, Users, Wrench, Clock, Search, Activity, 
   Battery, Gauge, MapPin, AlertTriangle, 
   TrendingUp, X, Play, Square, Bell, CheckCircle2, ChevronRight
 } from 'lucide-react';
-import { INITIAL_VEHICLES, INITIAL_LOGS } from './mockData';
+import { api } from '../api';
 
-export default function ManagerDashboard() {
-  const [vehicles, setVehicles] = useState(INITIAL_VEHICLES);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
+export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs }) {
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [toasts, setToasts] = useState([]);
 
-  // Find currently selected vehicle
+  
   const selectedVehicle = useMemo(() => {
     return vehicles.find(v => v.id === selectedVehicleId) || null;
   }, [vehicles, selectedVehicleId]);
 
-  // Statistics calculation
+  
   const stats = useMemo(() => {
     const total = vehicles.length;
     const enRoute = vehicles.filter(v => v.status === 'En Route').length;
@@ -32,7 +30,7 @@ export default function ManagerDashboard() {
     return { total, enRoute, idle, maintenance, activeAlerts, avgFuel };
   }, [vehicles]);
 
-  // Filtered vehicles
+  
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(v => {
       const matchesStatus = filterStatus === 'All' || v.status === filterStatus;
@@ -48,7 +46,7 @@ export default function ManagerDashboard() {
     });
   }, [vehicles, filterStatus, searchQuery]);
 
-  // Toast manager helper
+  
   const showToast = (message, type = 'info') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -57,21 +55,21 @@ export default function ManagerDashboard() {
     }, 4000);
   };
 
-  // Add event log helper
-  const addLog = (vehicleId, event, type = 'info') => {
+  
+  const addLog = useCallback((vehicleId, event, type = 'info') => {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setLogs(prev => [
       { id: Date.now() + Math.random(), timestamp: time, vehicleId, event, type },
-      ...prev.slice(0, 19) // Limit logs list to recent 20 events
+      ...prev.slice(0, 19) 
     ]);
-  };
+  }, [setLogs]);
 
-  // Live simulation system
+  
   useEffect(() => {
     if (!isSimulating) return;
 
     const interval = setInterval(() => {
-      // Pick random vehicle
+      
       const randomIndex = Math.floor(Math.random() * vehicles.length);
       const vehicle = vehicles[randomIndex];
       
@@ -82,26 +80,26 @@ export default function ManagerDashboard() {
       let eventMsg = '';
       let logType = 'info';
 
-      // 30% chance of major changes (status, issues), 70% chance of small telematics updates (speed, coordinates)
+      
       const isMajor = Math.random() < 0.3;
 
       if (isMajor) {
-        // Shift status or create/resolve alerts
+        
         const coin = Math.random();
         if (coin < 0.33 && vehicle.status !== 'Maintenance') {
-          // Status toggle
+          
           updatedStatus = vehicle.status === 'En Route' ? 'Idle' : 'En Route';
           updatedSpeed = updatedStatus === 'En Route' ? Math.floor(Math.random() * 25) + 40 : 0;
           eventMsg = `Transitioned to ${updatedStatus}. Speed: ${updatedSpeed} mph.`;
           logType = 'info';
         } else if (coin < 0.66 && updatedFuel < 20 && !vehicle.alerts.some(a => a.type === 'Low Fuel')) {
-          // Low fuel alert trigger
+          
           updatedAlerts.push({ id: 'f1', severity: 'medium', type: 'Low Fuel', message: `Fuel level critical: ${updatedFuel}% remaining` });
           eventMsg = `Fuel warning triggered at ${updatedFuel}%`;
           logType = 'warning';
           showToast(`Critical Low Fuel Alert on ${vehicle.id}`, 'warning');
         } else if (coin >= 0.66 && vehicle.alerts.length > 0) {
-          // Resolve alert / maintenance completion
+          
           const alertToResolve = vehicle.alerts[0];
           updatedAlerts = vehicle.alerts.filter(a => a.id !== alertToResolve.id);
           eventMsg = `Resolved alert: ${alertToResolve.type}`;
@@ -114,15 +112,15 @@ export default function ManagerDashboard() {
           }
         }
       } else {
-        // Small updates
+        
         if (vehicle.status === 'En Route') {
-          // Speed variance
-          const speedDiff = Math.floor(Math.random() * 9) - 4; // -4 to +4
+          
+          const speedDiff = Math.floor(Math.random() * 9) - 4; 
           updatedSpeed = Math.max(30, Math.min(75, vehicle.speed + speedDiff));
           eventMsg = `Telemetry update: Speed adjusted to ${updatedSpeed} mph.`;
           logType = 'info';
         } else if (vehicle.status === 'Idle' && Math.random() < 0.2) {
-          // Idle vehicle goes En Route
+          
           updatedStatus = 'En Route';
           updatedSpeed = 45;
           eventMsg = `Dispatched. Currently heading towards Bellevue.`;
@@ -131,7 +129,25 @@ export default function ManagerDashboard() {
         }
       }
 
-      // Update State
+      
+      const syncSimulation = async () => {
+        try {
+          await api.updateVehicleStatus(vehicle.id, {
+            status: updatedStatus,
+            fuel: updatedFuel,
+            speed: updatedSpeed,
+            alerts: updatedAlerts
+          });
+          if (eventMsg) {
+            await api.addLog(vehicle.id, eventMsg, logType);
+          }
+        } catch (err) {
+          console.warn('Backend simulation sync failed:', err.message);
+        }
+      };
+      syncSimulation();
+
+      
       setVehicles(prev => prev.map((v, i) => {
         if (i === randomIndex) {
           return {
@@ -151,9 +167,9 @@ export default function ManagerDashboard() {
     }, 4500);
 
     return () => clearInterval(interval);
-  }, [isSimulating, vehicles]);
+  }, [isSimulating, vehicles, addLog, setVehicles]);
 
-  // Handle direct manual status changes inside the drawer
+  
   const handleUpdateStatus = (vehicleId, newStatus) => {
     const vehicle = vehicles.find(v => v.id === vehicleId);
     if (!vehicle) return;
@@ -172,6 +188,20 @@ export default function ManagerDashboard() {
       updatedAlerts = vehicle.alerts.filter(a => a.id !== 'manual-diag');
     }
 
+    
+    const updateApi = async () => {
+      try {
+        await api.updateVehicleStatus(vehicleId, {
+          status: newStatus,
+          speed: updatedSpeed,
+          alerts: updatedAlerts
+        });
+      } catch (err) {
+        console.warn('Backend offline, updating local manager state only:', err.message);
+      }
+    };
+    updateApi();
+
     setVehicles(prev => prev.map(v => {
       if (v.id === vehicleId) {
         return { ...v, status: newStatus, speed: updatedSpeed, alerts: updatedAlerts };
@@ -186,7 +216,7 @@ export default function ManagerDashboard() {
   return (
     <div className="bg-slate-50/50 min-h-screen text-slate-900 flex flex-col font-sans antialiased relative">
       
-      {/* Toast Notification Container */}
+      {}
       <div className="fixed top-20 right-6 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none">
         {toasts.map(toast => (
           <div 
@@ -214,7 +244,7 @@ export default function ManagerDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         
-        {/* Header Section */}
+        {}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
@@ -229,7 +259,7 @@ export default function ManagerDashboard() {
             </p>
           </div>
 
-          {/* Simulator Toggle */}
+          {}
           <div className="flex items-center bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-xs self-start md:self-auto gap-4">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${isSimulating ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
@@ -265,10 +295,10 @@ export default function ManagerDashboard() {
           </div>
         </div>
 
-        {/* Stats Summary Panel */}
+        {}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           
-          {/* Card 1: Total Fleet */}
+          {}
           <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Fleet Size</p>
@@ -283,7 +313,7 @@ export default function ManagerDashboard() {
             </div>
           </div>
 
-          {/* Card 2: En Route */}
+          {}
           <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Active (En Route)</p>
@@ -300,7 +330,7 @@ export default function ManagerDashboard() {
             </div>
           </div>
 
-          {/* Card 3: Idle Depot */}
+          {}
           <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Idle (Available)</p>
@@ -314,7 +344,7 @@ export default function ManagerDashboard() {
             </div>
           </div>
 
-          {/* Card 4: Diagnostics / Maintenance */}
+          {}
           <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Under Maintenance</p>
@@ -338,16 +368,16 @@ export default function ManagerDashboard() {
 
         </div>
 
-        {/* Dashboard Workspace */}
+        {}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Main Table Column (8 Cols on LG) */}
+          {}
           <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col overflow-hidden">
             
-            {/* Filters Header */}
+            {}
             <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               
-              {/* Search input */}
+              {}
               <div className="relative w-full sm:max-w-xs">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <Search className="w-4 h-4" />
@@ -369,7 +399,7 @@ export default function ManagerDashboard() {
                 )}
               </div>
 
-              {/* Filter Buttons */}
+              {}
               <div className="flex flex-wrap items-center gap-1.5">
                 {['All', 'En Route', 'Idle', 'Maintenance'].map((status) => (
                   <button
@@ -388,7 +418,7 @@ export default function ManagerDashboard() {
 
             </div>
 
-            {/* Table */}
+            {}
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -413,7 +443,7 @@ export default function ManagerDashboard() {
                             isSelected ? 'bg-blue-50/40 hover:bg-blue-50/50' : ''
                           }`}
                         >
-                          {/* ID Column */}
+                          {}
                           <td className="py-4 px-5 align-middle">
                             <span className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
                               {vehicle.id}
@@ -425,13 +455,13 @@ export default function ManagerDashboard() {
                             )}
                           </td>
 
-                          {/* Driver / Type Column */}
+                          {}
                           <td className="py-4 px-5 align-middle">
                             <div className="font-semibold text-sm text-slate-800">{vehicle.driver}</div>
                             <div className="text-xs text-slate-400 font-medium">{vehicle.type}</div>
                           </td>
 
-                          {/* Status Column */}
+                          {}
                           <td className="py-4 px-5 align-middle">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
                               vehicle.status === 'En Route' 
@@ -451,7 +481,7 @@ export default function ManagerDashboard() {
                             </span>
                           </td>
 
-                          {/* Fuel / Battery Column */}
+                          {}
                           <td className="py-4 px-5 align-middle">
                             <div className="flex items-center gap-2">
                               <Battery className={`w-4.5 h-4.5 shrink-0 ${
@@ -475,7 +505,7 @@ export default function ManagerDashboard() {
                             </div>
                           </td>
 
-                          {/* Speed / Location Column */}
+                          {}
                           <td className="py-4 px-5 align-middle">
                             <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-sm">
                               <Gauge className="w-3.5 h-3.5 text-slate-400" />
@@ -487,7 +517,7 @@ export default function ManagerDashboard() {
                             </div>
                           </td>
 
-                          {/* Details Trigger Column */}
+                          {}
                           <td className="py-4 px-5 text-right align-middle">
                             <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
                           </td>
@@ -505,7 +535,7 @@ export default function ManagerDashboard() {
               </table>
             </div>
 
-            {/* Footer Pagination/Info */}
+            {}
             <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex justify-between items-center text-xs text-slate-500 font-medium">
               <span>Showing {filteredVehicles.length} of {vehicles.length} tracked assets</span>
               <span className="flex items-center gap-1.5">
@@ -516,10 +546,10 @@ export default function ManagerDashboard() {
 
           </div>
 
-          {/* Activity Log Panel Column (4 Cols on LG) */}
+          {}
           <div className="lg:col-span-4 flex flex-col gap-6">
             
-            {/* Live Operations Logs */}
+            {}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-5 flex flex-col h-[520px]">
               
               <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -532,7 +562,7 @@ export default function ManagerDashboard() {
                 </span>
               </div>
 
-              {/* Logs Feed Container */}
+              {}
               <div className="flex-grow overflow-y-auto mt-4 space-y-3.5 pr-1">
                 {logs.map((log) => (
                   <div key={log.id} className="text-xs border-b border-slate-50 pb-3 flex items-start gap-2.5 group">
@@ -558,7 +588,7 @@ export default function ManagerDashboard() {
                 ))}
               </div>
 
-              {/* Log actions */}
+              {}
               <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 <span>Updated in real-time</span>
                 <button 
@@ -580,19 +610,19 @@ export default function ManagerDashboard() {
 
       </div>
 
-      {/* Slide-out Telematics Drawer */}
+      {}
       {selectedVehicle && (
         <>
-          {/* Backdrop overlay */}
+          {}
           <div 
             onClick={() => setSelectedVehicleId(null)}
             className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200"
           />
 
-          {/* Drawer Element */}
+          {}
           <div className="fixed top-0 right-0 z-50 h-screen w-full sm:w-[420px] bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-in slide-in-from-right duration-300">
             
-            {/* Drawer Header */}
+            {}
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
                 <div className="flex items-center gap-2">
@@ -617,10 +647,10 @@ export default function ManagerDashboard() {
               </button>
             </div>
 
-            {/* Drawer Body (Scrollable) */}
+            {}
             <div className="flex-grow overflow-y-auto p-6 space-y-6">
               
-              {/* Profile Card */}
+              {}
               <div className="bg-slate-50 border border-slate-200/60 p-4.5 rounded-2xl space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
@@ -637,7 +667,7 @@ export default function ManagerDashboard() {
                 </div>
               </div>
 
-              {/* Alerts widget */}
+              {}
               {selectedVehicle.alerts.length > 0 && (
                 <div className="bg-red-50/70 border border-red-200 rounded-2xl p-4.5 space-y-2.5">
                   <h4 className="text-xs font-bold text-red-800 uppercase tracking-wide flex items-center gap-1.5">
@@ -653,7 +683,7 @@ export default function ManagerDashboard() {
                 </div>
               )}
 
-              {/* Status overrides */}
+              {}
               <div className="space-y-2.5">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Manager Quick Override</h4>
                 <div className="grid grid-cols-3 gap-2">
@@ -680,13 +710,13 @@ export default function ManagerDashboard() {
                 </div>
               </div>
 
-              {/* Core Telematics */}
+              {}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Engine Diagnostic Telematics</h4>
                 
                 <div className="grid grid-cols-2 gap-3.5">
                   
-                  {/* Battery/Fuel Card */}
+                  {}
                   <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-3.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Remaining Fuel</span>
                     <span className="text-lg font-black text-slate-900 mt-1 block flex items-center gap-1.5">
@@ -695,7 +725,7 @@ export default function ManagerDashboard() {
                     </span>
                   </div>
 
-                  {/* Speed Card */}
+                  {}
                   <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-3.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Current Speed</span>
                     <span className="text-lg font-black text-slate-900 mt-1 block flex items-center gap-1.5">
@@ -704,7 +734,7 @@ export default function ManagerDashboard() {
                     </span>
                   </div>
 
-                  {/* Engine Temp */}
+                  {}
                   <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-3.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Coolant Temp</span>
                     <span className={`text-base font-black mt-1 block ${selectedVehicle.telemetry.temp > 210 ? 'text-red-600' : 'text-slate-900'}`}>
@@ -712,7 +742,7 @@ export default function ManagerDashboard() {
                     </span>
                   </div>
 
-                  {/* Tire Pressure */}
+                  {}
                   <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-3.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tire Pressure</span>
                     <span className="text-base font-black text-slate-900 mt-1 block">
@@ -722,7 +752,7 @@ export default function ManagerDashboard() {
 
                 </div>
 
-                {/* Cargo Load */}
+                {}
                 <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-3.5">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cargo Load Weight</span>
                   <span className="text-sm font-bold text-slate-900 mt-1 block">
@@ -732,14 +762,14 @@ export default function ManagerDashboard() {
 
               </div>
 
-              {/* Mock Route Map */}
+              {}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Telemetry Routing Map</h4>
                 <div className="relative h-44 bg-slate-900 border border-slate-950 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner group">
-                  {/* Grid Lines */}
+                  {}
                   <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
                   
-                  {/* Mock Map Vector Graphics */}
+                  {}
                   <svg className="w-full h-full absolute inset-0 text-slate-700/40" xmlns="http://www.w3.org/2000/svg">
                     <path d="M 30,50 Q 150,20 200,90 T 380,120" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="5, 5" />
                     <path d="M 50,150 C 120,80 280,160 350,60" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -747,7 +777,7 @@ export default function ManagerDashboard() {
                     <circle cx="350" cy="60" r="4" fill="#f59e0b" />
                   </svg>
 
-                  {/* Pulsing Target Node */}
+                  {}
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
                     <span className="relative flex h-5 w-5 mx-auto">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -757,7 +787,7 @@ export default function ManagerDashboard() {
                     </span>
                   </div>
 
-                  {/* Overlay Info bar */}
+                  {}
                   <div className="absolute bottom-2.5 left-2.5 right-2.5 bg-slate-950/80 backdrop-blur-xs border border-slate-800 rounded-lg p-2 flex items-center justify-between text-[10px] text-slate-300 font-semibold">
                     <span className="flex items-center gap-1 text-slate-400">
                       <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
@@ -772,7 +802,7 @@ export default function ManagerDashboard() {
 
             </div>
 
-            {/* Drawer Footer */}
+            {}
             <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 text-xs text-slate-500 font-medium">
               <span>Last polled: Just now</span>
               <button 

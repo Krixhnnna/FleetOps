@@ -3,12 +3,12 @@ import React, { useState } from 'react';
 export default function Navbar({ onNavigate, currentView, user }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Simple helper to scroll to sections
+  
   const handleScroll = (id) => {
     setIsOpen(false);
     if (currentView !== 'home') {
       onNavigate('home');
-      // Wait for view update
+      
       setTimeout(() => {
         const element = document.getElementById(id);
         if (element) element.scrollIntoView({ behavior: 'smooth' });
@@ -27,13 +27,13 @@ export default function Navbar({ onNavigate, currentView, user }) {
   return (
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        {/* Logo */}
+        {}
         <button 
           onClick={() => handleNavigate('home')} 
           className="flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md transition-opacity hover:opacity-90 cursor-pointer"
         >
           <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm flex items-center justify-center">
-            {/* Custom premium geometric logo */}
+            {}
             <svg 
               className="w-5 h-5 text-white" 
               viewBox="0 0 24 24" 
@@ -51,7 +51,7 @@ export default function Navbar({ onNavigate, currentView, user }) {
           </span>
         </button>
 
-        {/* Desktop Navigation */}
+        {}
         <nav className="hidden md:flex items-center gap-8">
           <button 
             onClick={() => handleNavigate('home')}
@@ -105,9 +105,21 @@ export default function Navbar({ onNavigate, currentView, user }) {
               </button>
             </>
           )}
+          {user && user.role === 'driver' && (
+            <button 
+              onClick={() => handleNavigate('driver-dashboard')}
+              className={`text-sm font-semibold transition-colors focus:outline-none focus-visible:text-blue-600 cursor-pointer ${
+                currentView === 'driver-dashboard' 
+                  ? 'text-blue-600' 
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Driver Portal
+            </button>
+          )}
         </nav>
 
-        {/* Desktop CTA & Hamburger Wrapper */}
+        {}
         <div className="flex items-center gap-3">
           <div className="hidden md:flex items-center gap-3">
             {user ? (
@@ -147,7 +159,7 @@ export default function Navbar({ onNavigate, currentView, user }) {
             )}
           </div>
 
-          {/* Hamburger Mobile Toggle */}
+          {}
           <button
             onClick={() => setIsOpen(!isOpen)}
             type="button"
@@ -167,7 +179,7 @@ export default function Navbar({ onNavigate, currentView, user }) {
         </div>
       </div>
 
-      {/* Mobile Navigation Dropdown */}
+      {}
       {isOpen && (
         <div className="md:hidden border-t border-slate-200 bg-white/98 backdrop-blur-md shadow-lg animate-in slide-in-from-top-4 duration-200">
           <div className="px-6 py-4 flex flex-col gap-4 text-left">
@@ -197,32 +209,42 @@ export default function Navbar({ onNavigate, currentView, user }) {
             >
               Contact
             </button>
-             {user && (user.role === 'manager' || user.role === 'admin') && (
-               <>
-                 <button 
-                   onClick={() => handleNavigate('manager-dashboard')}
-                   className={`text-sm font-semibold py-1.5 focus:outline-none cursor-pointer text-left ${
-                     currentView === 'manager-dashboard' ? 'text-blue-600' : 'text-slate-600'
-                   }`}
-                 >
-                   Manager Console
-                 </button>
-                 <button 
-                   onClick={() => handleNavigate('export-hub')}
-                   className={`text-sm font-semibold py-1.5 focus:outline-none cursor-pointer text-left ${
-                     currentView === 'export-hub' ? 'text-blue-600' : 'text-slate-600'
-                   }`}
-                 >
-                   Export Hub
-                 </button>
-               </>
-             )}
+            {user && (user.role === 'manager' || user.role === 'admin') && (
+              <>
+                <button 
+                  onClick={() => handleNavigate('manager-dashboard')}
+                  className={`text-sm font-semibold py-1.5 focus:outline-none cursor-pointer text-left ${
+                    currentView === 'manager-dashboard' ? 'text-blue-600' : 'text-slate-600'
+                  }`}
+                >
+                  Manager Console
+                </button>
+                <button 
+                  onClick={() => handleNavigate('export-hub')}
+                  className={`text-sm font-semibold py-1.5 focus:outline-none cursor-pointer text-left ${
+                    currentView === 'export-hub' ? 'text-blue-600' : 'text-slate-600'
+                  }`}
+                >
+                  Export Hub
+                </button>
+              </>
+            )}
+            {user && user.role === 'driver' && (
+              <button 
+                onClick={() => handleNavigate('driver-dashboard')}
+                className={`text-sm font-semibold py-1.5 focus:outline-none cursor-pointer text-left ${
+                  currentView === 'driver-dashboard' ? 'text-blue-600' : 'text-slate-600'
+                }`}
+              >
+                Driver Portal
+              </button>
+            )}
             
             <hr className="border-slate-100 my-1" />
             
             {user ? (
               <div className="flex flex-col gap-3">
-                <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 py-2.5 rounded-lg text-center select-none capitalize">
+                <span className="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 py-2.5 rounded-lg text-center select-none capitalize font-sans">
                   {user.role === 'admin' ? 'System Admin' : user.role === 'manager' ? 'Manager' : 'Driver'}: {user.email.split('@')[0]}
                 </span>
                 <button 
