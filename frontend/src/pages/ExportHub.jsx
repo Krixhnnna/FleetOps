@@ -30,9 +30,15 @@ export default function ExportHub({ onNavigate, user }) {
       const roleToSend = getBackendRole(user?.role);
       console.log('Export Hub user state:', user);
       console.log('roleToSend determined:', roleToSend);
+
+      const token = localStorage.getItem('fleetops_token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       
       // Hit the backend endpoint with role query param fallback and cache-buster
-      const response = await fetch(`http://localhost:5000/api/reports/export-csv?range=${dateRange}&role=${roleToSend}&_t=${Date.now()}`, {
+      const response = await fetch(`http://localhost:5001/api/reports/export-csv?range=${dateRange}&role=${roleToSend}&_t=${Date.now()}`, {
         method: 'GET',
         headers: headers
       });
