@@ -11,7 +11,10 @@ import { api } from './api';
 
 function App() {
   const [view, setView] = useState('home');
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('fleetops_user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [vehicles, setVehicles] = useState(INITIAL_VEHICLES);
   const [logs, setLogs] = useState(INITIAL_LOGS);
 
@@ -42,28 +45,37 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
+      const currentUser = localStorage.getItem('fleetops_user') ? JSON.parse(localStorage.getItem('fleetops_user')) : null;
+
       if (hash === '#/login') {
         setView('login');
         window.scrollTo(0, 0);
       } else if (hash === '#/dashboard' || hash === '#/manager-dashboard') {
-        setView('manager-dashboard');
-        
-        setUser(prev => prev || { email: 'manager@fleetops.com', role: 'manager' });
-        window.scrollTo(0, 0);
+        if (currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin')) {
+          setView('manager-dashboard');
+          window.scrollTo(0, 0);
+        } else {
+          window.location.hash = '#/login';
+        }
       } else if (hash === '#/driver' || hash === '#/driver-dashboard') {
-        setView('driver-dashboard');
-        
-        setUser(prev => prev || { email: 'driver@fleetops.com', role: 'driver' });
-        window.scrollTo(0, 0);
+        if (currentUser && currentUser.role === 'driver') {
+          setView('driver-dashboard');
+          window.scrollTo(0, 0);
+        } else {
+          window.location.hash = '#/login';
+        }
       } else if (hash === '#/export-hub') {
-        setView('export-hub');
-        window.scrollTo(0, 0);
+        if (currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin')) {
+          setView('export-hub');
+          window.scrollTo(0, 0);
+        } else {
+          window.location.hash = '#/login';
+        }
       } else {
         setView('home');
       }
     };
 
-    
     handleHashChange();
 
     window.addEventListener('hashchange', handleHashChange);
@@ -80,6 +92,8 @@ function App() {
     } else if (newView === 'export-hub') {
       window.location.hash = '#/export-hub';
     } else if (newView === 'logout') {
+      api.logout();
+      localStorage.removeItem('fleetops_user');
       setUser(null);
       window.location.hash = '#/';
     } else {
@@ -89,6 +103,7 @@ function App() {
 
   const handleLogin = (loggedInUser) => {
     setUser(loggedInUser);
+    localStorage.setItem('fleetops_user', JSON.stringify(loggedInUser));
     if (loggedInUser.role === 'manager' || loggedInUser.role === 'admin') {
       navigateTo('manager-dashboard');
     } else if (loggedInUser.role === 'driver') {

@@ -3,6 +3,7 @@ import {
   FileSpreadsheet, ShieldAlert, ShieldCheck, 
   ArrowLeft, Loader2, Download, AlertTriangle, Lock 
 } from 'lucide-react';
+import { API_BASE } from '../api';
 
 export default function ExportHub({ onNavigate, user }) {
   const [dateRange, setDateRange] = useState('current_week');
@@ -28,13 +29,19 @@ export default function ExportHub({ onNavigate, user }) {
 
     try {
       const roleToSend = getBackendRole(user?.role);
+      console.log('Export Hub user state:', user);
+      console.log('roleToSend determined:', roleToSend);
+
+      const token = localStorage.getItem('fleetops_token');
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       
-      // Hit the backend endpoint
-      const response = await fetch(`http://localhost:5000/api/reports/export-csv?range=${dateRange}`, {
+      // Hit the backend endpoint with role query param fallback and cache-buster
+      const response = await fetch(`${API_BASE}/reports/export-csv?range=${dateRange}&role=${roleToSend}&_t=${Date.now()}`, {
         method: 'GET',
-        headers: {
-          'x-user-role': roleToSend
-        }
+        headers: headers
       });
 
       if (!response.ok) {
@@ -141,125 +148,75 @@ export default function ExportHub({ onNavigate, user }) {
             </div>
           ) : (
             /* Authorized Panel Details */
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
+            <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 space-y-5 max-w-xl mx-auto">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-2">
+                Export Setup
+              </h3>
               
-              {/* Controls Column */}
-              <div className="md:col-span-6 bg-slate-50 border border-slate-200/80 rounded-xl p-5 space-y-5">
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-2">
-                  Export Setup
-                </h3>
-                
-                {/* Error/Success Feedbacks */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-800 text-xs font-semibold px-3 py-2.5 rounded-lg flex items-start gap-2">
-                    <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                    <span>{error}</span>
-                  </div>
-                )}
-                {success && (
-                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-3 py-2.5 rounded-lg flex items-start gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <span>Report downloaded successfully in CSV format!</span>
-                  </div>
-                )}
-
-                {/* Range Select */}
-                <div>
-                  <label htmlFor="range" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    Select Range
-                  </label>
-                  <select
-                    id="range"
-                    value={dateRange}
-                    onChange={(e) => setDateRange(e.target.value)}
-                    className="block w-full text-slate-900 border border-slate-300 rounded-lg px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="current_week">Current Week (All Drivers)</option>
-                    <option value="today">Today (Active Logs)</option>
-                    <option value="last_30_days">Last 30 Days (Compliance Archive)</option>
-                  </select>
+              {/* Error/Success Feedbacks */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-800 text-xs font-semibold px-3 py-2.5 rounded-lg flex items-start gap-2">
+                  <ShieldAlert className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>{error}</span>
                 </div>
-
-                {/* Format Select */}
-                <div>
-                  <label htmlFor="format" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                    Format
-                  </label>
-                  <select
-                    id="format"
-                    value={format}
-                    onChange={(e) => setFormat(e.target.value)}
-                    className="block w-full text-slate-900 border border-slate-300 rounded-lg px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value="csv">CSV Spreadsheet (.csv)</option>
-                  </select>
+              )}
+              {success && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold px-3 py-2.5 rounded-lg flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>Report downloaded successfully in CSV format!</span>
                 </div>
+              )}
 
-                {/* Submit Action Button */}
-                <button
-                  onClick={handleGenerateReport}
-                  disabled={isLoading}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400 text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              {/* Range Select */}
+              <div>
+                <label htmlFor="range" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  Select Range
+                </label>
+                <select
+                  id="range"
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value)}
+                  className="block w-full text-slate-900 border border-slate-300 rounded-lg px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Generating Report...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4" />
-                      Generate Excel / CSV Report
-                    </>
-                  )}
-                </button>
+                  <option value="current_week">Current Week (All Drivers)</option>
+                  <option value="today">Today (Active Logs)</option>
+                  <option value="last_30_days">Last 30 Days (Compliance Archive)</option>
+                </select>
               </div>
 
-              {/* Guardrails Info Column */}
-              <div className="md:col-span-6 border border-slate-200 rounded-xl p-5 space-y-4">
-                <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider border-b border-slate-200 pb-2 flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-slate-400" />
-                  System Security & Processing Guardrails
-                </h3>
-                
-                <ul className="text-xs font-semibold text-slate-600 space-y-3 font-sans">
-                  <li className="flex items-start gap-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-slate-900 font-bold">Express Middleware Protection</p>
-                      <p className="text-slate-400 text-[10px] mt-0.5">verifyRole(['Admin', 'FleetManager']) is strictly enforced on the API endpoint.</p>
-                    </div>
-                  </li>
-                  
-                  <li className="flex items-start gap-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-slate-900 font-bold">Driver Access Attempt Result</p>
-                      <p className="text-slate-400 text-[10px] mt-0.5">The backend API strictly rejects driver operations with a 403 Forbidden status code.</p>
-                    </div>
-                  </li>
-
-                  <li className="flex items-start gap-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-slate-900 font-bold">HTTP Response Headers Sent</p>
-                      <div className="bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 mt-1 font-mono text-[9px] text-slate-500 space-y-0.5">
-                        <p>Content-Type: text/csv</p>
-                        <p>Content-Disposition: attachment; filename="fleet-report.csv"</p>
-                      </div>
-                    </div>
-                  </li>
-
-                  <li className="flex items-start gap-2.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                    <div>
-                      <p className="text-slate-900 font-bold">Action Flow</p>
-                      <p className="text-slate-400 text-[10px] mt-0.5">Triggers an automatic file download stream directly in the browser window.</p>
-                    </div>
-                  </li>
-                </ul>
+              {/* Format Select */}
+              <div>
+                <label htmlFor="format" className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  Format
+                </label>
+                <select
+                  id="format"
+                  value={format}
+                  onChange={(e) => setFormat(e.target.value)}
+                  className="block w-full text-slate-900 border border-slate-300 rounded-lg px-3 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="csv">CSV Spreadsheet (.csv)</option>
+                </select>
               </div>
 
+              {/* Submit Action Button */}
+              <button
+                onClick={handleGenerateReport}
+                disabled={isLoading}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-400 text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating Report...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4" />
+                    Generate Excel / CSV Report
+                  </>
+                )}
+              </button>
             </div>
           )}
         </div>

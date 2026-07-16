@@ -1,44 +1,64 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  Truck, Clock, Activity, AlertTriangle, Gauge, Battery, 
-  MapPin, Play, Square, X, CheckCircle2, Bell, History, AlertCircle
-} from 'lucide-react';
-import { api } from '../api';
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import {
+  Truck,
+  Clock,
+  Activity,
+  AlertTriangle,
+  Gauge,
+  Battery,
+  MapPin,
+  Play,
+  Square,
+  X,
+  CheckCircle2,
+  Bell,
+  History,
+  AlertCircle,
+} from "lucide-react";
+import { api } from "../api";
 
-export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }) {
-  const driverEmail = user?.email || 'driver@fleetops.com';
+export default function DriverDashboard({
+  vehicles,
+  setVehicles,
+  setLogs,
+  user,
+}) {
+  const driverEmail = user?.email || "driver@fleetops.com";
   const [driverName, setDriverName] = useState(() => {
-    const emailPrefix = user?.email ? user.email.split('@')[0] : 'Driver';
+    const emailPrefix = user?.email ? user.email.split("@")[0] : "Driver";
     return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
   });
 
   const [activeShift, setActiveShift] = useState(false);
   const [shiftId, setShiftId] = useState(null);
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [shiftSeconds, setShiftSeconds] = useState(0);
   const [isReporting, setIsReporting] = useState(false);
   const [toasts, setToasts] = useState([]);
 
-  const [incidentType, setIncidentType] = useState('Breakdown');
-  const [incidentSeverity, setIncidentSeverity] = useState('medium');
-  const [incidentLocation, setIncidentLocation] = useState('');
-  const [incidentDesc, setIncidentDesc] = useState('');
+  const [incidentType, setIncidentType] = useState("Breakdown");
+  const [incidentSeverity, setIncidentSeverity] = useState("medium");
+  const [incidentLocation, setIncidentLocation] = useState("");
+  const [incidentDesc, setIncidentDesc] = useState("");
   const [isSubmittingIncident, setIsSubmittingIncident] = useState(false);
 
   const [localShifts, setLocalShifts] = useState([]);
   const [localIncidents, setLocalIncidents] = useState([]);
 
   const [liveTelemetry, setLiveTelemetry] = useState(null);
-  
+
   const telemetryRef = useRef(null);
   telemetryRef.current = liveTelemetry;
 
+  const vehiclesRef = useRef(vehicles);
+  vehiclesRef.current = vehicles;
+
   const currentVehicle = useMemo(() => {
-    return vehicles.find(v => v.id === selectedVehicleId) || null;
+    return vehicles.find((v) => v.id === selectedVehicleId) || null;
   }, [vehicles, selectedVehicleId]);
 
   const availableVehicles = useMemo(() => {
-    return vehicles.filter(v => v.status === 'Idle');
+    return vehicles.filter((v) => v.status === "Idle");
   }, [vehicles]);
 
   const formatTime = (totalSeconds) => {
@@ -46,17 +66,17 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
     return [
-      hrs.toString().padStart(2, '0'),
-      mins.toString().padStart(2, '0'),
-      secs.toString().padStart(2, '0')
-    ].join(':');
+      hrs.toString().padStart(2, "0"),
+      mins.toString().padStart(2, "0"),
+      secs.toString().padStart(2, "0"),
+    ].join(":");
   };
 
-  const showToast = (message, type = 'info') => {
+  const showToast = (message, type = "info") => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
+      setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   };
 
@@ -64,7 +84,7 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
     let timer;
     if (activeShift) {
       timer = setInterval(() => {
-        setShiftSeconds(prev => prev + 1);
+        setShiftSeconds((prev) => prev + 1);
       }, 1000);
     } else {
       setShiftSeconds(0);
@@ -75,13 +95,14 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
   useEffect(() => {
     if (!activeShift || !selectedVehicleId) return;
 
-    if (currentVehicle) {
+    const initialVehicle = vehiclesRef.current.find((v) => v.id === selectedVehicleId);
+    if (initialVehicle) {
       setLiveTelemetry({
-        speed: currentVehicle.speed || 55,
-        fuel: currentVehicle.fuel || 80,
-        temp: currentVehicle.telemetry?.temp || 180,
-        pressure: currentVehicle.telemetry?.pressure || '95 psi',
-        location: currentVehicle.location || 'Terminal Depot'
+        speed: initialVehicle.speed || 55,
+        fuel: initialVehicle.fuel || 80,
+        temp: initialVehicle.telemetry?.temp || 180,
+        pressure: initialVehicle.telemetry?.pressure || "95 psi",
+        location: initialVehicle.location || "Terminal Depot",
       });
     }
 
@@ -89,93 +110,124 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
       const currentVal = telemetryRef.current;
       if (!currentVal) return;
 
-      const speedChange = Math.floor(Math.random() * 9) - 4; 
-      const newSpeed = Math.max(30, Math.min(75, currentVal.speed + speedChange));
+      const latestVehicles = vehiclesRef.current;
+      const latestVehicle = latestVehicles.find((v) => v.id === selectedVehicleId);
+      const currentStatus = latestVehicle?.status || "En Route";
+
+      let newSpeed = 0;
+      let newTemp = currentVal.temp;
       
-      const newFuel = Math.max(1, Math.round((currentVal.fuel - 0.2) * 10) / 10);
-      
-      const tempDiff = Math.floor(Math.random() * 5) - 2; 
-      const newTemp = Math.max(160, Math.min(230, currentVal.temp + tempDiff));
+      if (currentStatus === "En Route") {
+        const speedChange = Math.floor(Math.random() * 9) - 4;
+        newSpeed = Math.max(30, Math.min(75, currentVal.speed + speedChange));
+        if (newSpeed === 0) newSpeed = 55;
+
+        const tempDiff = Math.floor(Math.random() * 5) - 2;
+        newTemp = Math.max(160, Math.min(230, currentVal.temp + tempDiff));
+      } else {
+        newSpeed = 0;
+        if (currentVal.temp > 78) {
+          newTemp = Math.max(75, currentVal.temp - 2);
+        } else if (currentVal.temp < 72) {
+          newTemp = Math.min(75, currentVal.temp + 1);
+        }
+      }
+
+      const newFuel = Math.max(
+        1,
+        Math.round((currentVal.fuel - (currentStatus === "En Route" ? 0.2 : 0.02)) * 10) / 10,
+      );
 
       const updatedTelemetry = {
         speed: newSpeed,
         fuel: Math.floor(newFuel),
         temp: newTemp,
         pressure: currentVal.pressure,
-        location: currentVal.location
+        location: currentVal.location,
       };
 
       setLiveTelemetry(updatedTelemetry);
 
       try {
         await api.updateVehicleStatus(selectedVehicleId, {
-          status: 'En Route',
+          status: currentStatus,
           speed: newSpeed,
           fuel: Math.floor(newFuel),
           telemetry: {
             temp: newTemp,
-            load: currentVehicle?.telemetry?.load || 'General Freight',
-            pressure: currentVal.pressure
-          }
+            load: latestVehicle?.telemetry?.load || "General Freight",
+            pressure: currentVal.pressure,
+          },
         });
       } catch (err) {
-        console.warn('Backend sync failed, updating local state:', err.message);
-        setVehicles(prev => prev.map(v => {
-          if (v.id === selectedVehicleId) {
-            return {
-              ...v,
-              status: 'En Route',
-              speed: newSpeed,
-              fuel: Math.floor(newFuel),
-              telemetry: {
-                ...v.telemetry,
-                temp: newTemp
-              }
-            };
-          }
-          return v;
-        }));
+        console.warn("Backend sync failed, updating local state:", err.message);
+        setVehicles((prev) =>
+          prev.map((v) => {
+            if (v.id === selectedVehicleId) {
+              return {
+                ...v,
+                status: currentStatus,
+                speed: newSpeed,
+                fuel: Math.floor(newFuel),
+                telemetry: {
+                  ...v.telemetry,
+                  temp: newTemp,
+                },
+              };
+            }
+            return v;
+          }),
+        );
       }
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [activeShift, selectedVehicleId, currentVehicle, setVehicles]);
+  }, [activeShift, selectedVehicleId, setVehicles]);
 
   const handleStartShift = async () => {
     if (!selectedVehicleId) {
-      showToast('Please select a vehicle first.', 'warning');
+      showToast("Please select a vehicle first.", "warning");
       return;
     }
 
     try {
       const result = await api.startShift(driverName, selectedVehicleId);
-      
+
       setActiveShift(true);
       setShiftId(result.shift?.id || Date.now().toString());
-      
-      showToast(`Shift started on vehicle ${selectedVehicleId}`, 'success');
-    } catch (err) {
-      console.warn('Backend offline, starting shift locally.', err.message);
-      setVehicles(prev => prev.map(v => {
-        if (v.id === selectedVehicleId) {
-          return { ...v, driver: driverName, status: 'En Route', speed: 55 };
-        }
-        return v;
-      }));
 
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      showToast(`Shift started on vehicle ${selectedVehicleId}`, "success");
+    } catch (err) {
+      console.warn("Backend offline, starting shift locally.", err.message);
+      setVehicles((prev) =>
+        prev.map((v) => {
+          if (v.id === selectedVehicleId) {
+            return { ...v, driver: driverName, status: "En Route", speed: 55 };
+          }
+          return v;
+        }),
+      );
+
+      const time = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
       const newLog = {
         id: Date.now(),
         timestamp: time,
         vehicleId: selectedVehicleId,
         event: `Driver ${driverName} started shift. Status: En Route.`,
-        type: 'success'
+        type: "success",
       };
-      setLogs(prev => [newLog, ...prev.slice(0, 19)]);
-      
+      setLogs((prev) => [newLog, ...prev.slice(0, 19)]);
+
       setActiveShift(true);
       setShiftId(Date.now().toString());
-      showToast(`Shift started locally (Offline) on ${selectedVehicleId}`, 'success');
+      showToast(
+        `Shift started locally (Offline) on ${selectedVehicleId}`,
+        "success",
+      );
     }
   };
 
@@ -187,68 +239,80 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
 
     try {
       await api.endShift(shiftId);
-      
+
       const completedShift = {
         id: shiftId,
         vehicleId: currentVehicleId,
         date: new Date().toLocaleDateString(),
         duration: durationStr,
-        status: 'Completed'
+        status: "Completed",
       };
-      setLocalShifts(prev => [completedShift, ...prev]);
+      setLocalShifts((prev) => [completedShift, ...prev]);
 
       setActiveShift(false);
       setShiftId(null);
-      setSelectedVehicleId('');
+      setSelectedVehicleId("");
       setLiveTelemetry(null);
 
-      showToast(`Shift completed! Duration: ${durationStr}`, 'success');
+      showToast(`Shift completed! Duration: ${durationStr}`, "success");
     } catch (err) {
-      console.warn('Backend offline, ending shift locally.', err.message);
-      
-      setVehicles(prev => prev.map(v => {
-        if (v.id === currentVehicleId) {
-          return { ...v, driver: 'N/A', status: 'Idle', speed: 0 };
-        }
-        return v;
-      }));
+      console.warn("Backend offline, ending shift locally.", err.message);
 
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setVehicles((prev) =>
+        prev.map((v) => {
+          if (v.id === currentVehicleId) {
+            return { ...v, driver: "N/A", status: "Idle", speed: 0 };
+          }
+          return v;
+        }),
+      );
+
+      const time = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
       const newLog = {
         id: Date.now(),
         timestamp: time,
         vehicleId: currentVehicleId,
         event: `Driver ${driverName} ended shift. Status: Idle.`,
-        type: 'info'
+        type: "info",
       };
-      setLogs(prev => [newLog, ...prev.slice(0, 19)]);
+      setLogs((prev) => [newLog, ...prev.slice(0, 19)]);
 
       const completedShift = {
         id: shiftId || Date.now().toString(),
         vehicleId: currentVehicleId,
         date: new Date().toLocaleDateString(),
         duration: durationStr,
-        status: 'Completed'
+        status: "Completed",
       };
-      setLocalShifts(prev => [completedShift, ...prev]);
+      setLocalShifts((prev) => [completedShift, ...prev]);
 
       setActiveShift(false);
       setShiftId(null);
-      setSelectedVehicleId('');
+      setSelectedVehicleId("");
       setLiveTelemetry(null);
-      
-      showToast(`Shift completed locally (Offline)! Duration: ${durationStr}`, 'success');
+
+      showToast(
+        `Shift completed locally (Offline)! Duration: ${durationStr}`,
+        "success",
+      );
     }
   };
 
   const handleSubmitIncident = async (e) => {
     e.preventDefault();
     if (!selectedVehicleId) {
-      showToast('You must have an active vehicle to file an incident.', 'warning');
+      showToast(
+        "You must have an active vehicle to file an incident.",
+        "warning",
+      );
       return;
     }
     if (!incidentDesc.trim() || !incidentLocation.trim()) {
-      showToast('Please fill in location and description.', 'warning');
+      showToast("Please fill in location and description.", "warning");
       return;
     }
 
@@ -260,68 +324,85 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
       type: incidentType,
       severity: incidentSeverity,
       location: incidentLocation,
-      description: incidentDesc
+      description: incidentDesc,
     };
 
     try {
       await api.reportIncident(incidentData);
-      
-      setLocalIncidents(prev => [
+
+      setLocalIncidents((prev) => [
         {
           id: Date.now().toString(),
           ...incidentData,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
-        ...prev
+        ...prev,
       ]);
 
-      setIncidentLocation('');
-      setIncidentDesc('');
+      setIncidentLocation("");
+      setIncidentDesc("");
       setIsReporting(false);
-      showToast('Incident reported successfully!', 'warning');
+      showToast("Incident reported successfully!", "warning");
     } catch (err) {
-      console.warn('Backend offline, reporting incident locally.', err.message);
-      
+      console.warn("Backend offline, reporting incident locally.", err.message);
+
       const newAlert = {
-        id: 'alert-' + Date.now(),
-        severity: incidentSeverity === 'high' ? 'high' : incidentSeverity === 'medium' ? 'medium' : 'low',
+        id: "alert-" + Date.now(),
+        severity:
+          incidentSeverity === "high"
+            ? "high"
+            : incidentSeverity === "medium"
+              ? "medium"
+              : "low",
         type: incidentType,
-        message: incidentDesc
+        message: incidentDesc,
       };
 
-      setVehicles(prev => prev.map(v => {
-        if (v.id === selectedVehicleId) {
-          return {
-            ...v,
-            alerts: [...v.alerts, newAlert]
-          };
-        }
-        return v;
-      }));
+      setVehicles((prev) =>
+        prev.map((v) => {
+          if (v.id === selectedVehicleId) {
+            return {
+              ...v,
+              alerts: [...v.alerts, newAlert],
+            };
+          }
+          return v;
+        }),
+      );
 
-      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const time = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
       const newLog = {
         id: Date.now() + Math.random(),
         timestamp: time,
         vehicleId: selectedVehicleId,
         event: `Incident Reported (${incidentType}): ${incidentDesc}`,
-        type: incidentSeverity === 'high' ? 'warning' : 'info'
+        type: incidentSeverity === "high" ? "warning" : "info",
       };
-      setLogs(prev => [newLog, ...prev.slice(0, 19)]);
+      setLogs((prev) => [newLog, ...prev.slice(0, 19)]);
 
-      setLocalIncidents(prev => [
+      setLocalIncidents((prev) => [
         {
           id: Date.now().toString(),
           ...incidentData,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
-        ...prev
+        ...prev,
       ]);
 
-      setIncidentLocation('');
-      setIncidentDesc('');
+      setIncidentLocation("");
+      setIncidentDesc("");
       setIsReporting(false);
-      showToast('Incident reported locally (Offline)', 'warning');
+      showToast("Incident reported locally (Offline)", "warning");
     } finally {
       setIsSubmittingIncident(false);
     }
@@ -331,61 +412,72 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
     if (!activeShift || !selectedVehicleId) return;
 
     try {
-      const speedVal = newStatus === 'En Route' ? 55 : 0;
+      const speedVal = newStatus === "En Route" ? 55 : 0;
       await api.updateVehicleStatus(selectedVehicleId, {
         status: newStatus,
-        speed: speedVal
+        speed: speedVal,
       });
 
       if (liveTelemetry) {
-        setLiveTelemetry(prev => ({
+        setLiveTelemetry((prev) => ({
           ...prev,
           status: newStatus,
-          speed: speedVal
+          speed: speedVal,
         }));
       }
 
-      showToast(`Status toggled to ${newStatus}`, 'info');
+      showToast(`Status toggled to ${newStatus}`, "info");
     } catch (err) {
-      console.warn('Backend offline, toggling status locally:', err.message);
-      const speedVal = newStatus === 'En Route' ? 55 : 0;
-      setVehicles(prev => prev.map(v => {
-        if (v.id === selectedVehicleId) {
-          return { ...v, status: newStatus, speed: speedVal };
-        }
-        return v;
-      }));
+      console.warn("Backend offline, toggling status locally:", err.message);
+      const speedVal = newStatus === "En Route" ? 55 : 0;
+      setVehicles((prev) =>
+        prev.map((v) => {
+          if (v.id === selectedVehicleId) {
+            return { ...v, status: newStatus, speed: speedVal };
+          }
+          return v;
+        }),
+      );
       if (liveTelemetry) {
-        setLiveTelemetry(prev => ({
+        setLiveTelemetry((prev) => ({
           ...prev,
-          speed: speedVal
+          speed: speedVal,
         }));
       }
-      showToast(`Status toggled to ${newStatus} locally`, 'info');
+      showToast(`Status toggled to ${newStatus} locally`, "info");
     }
   };
 
   return (
     <div className="bg-slate-50/50 min-h-screen text-slate-900 flex flex-col font-sans antialiased relative">
-      
       <div className="fixed top-20 right-6 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none">
-        {toasts.map(toast => (
-          <div 
-            key={toast.id} 
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
             className={`p-3.5 rounded-xl border shadow-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-3 duration-250 backdrop-blur-md pointer-events-auto ${
-              toast.type === 'warning' 
-                ? 'bg-red-50/95 border-red-200 text-red-900' 
-                : toast.type === 'success'
-                  ? 'bg-emerald-50/95 border-emerald-200 text-emerald-950'
-                  : 'bg-blue-50/95 border-blue-200 text-blue-950'
+              toast.type === "warning"
+                ? "bg-red-50/95 border-red-200 text-red-900"
+                : toast.type === "success"
+                  ? "bg-emerald-50/95 border-emerald-200 text-emerald-950"
+                  : "bg-blue-50/95 border-blue-200 text-blue-950"
             }`}
           >
-            {toast.type === 'warning' && <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />}
-            {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />}
-            {toast.type === 'info' && <Bell className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />}
+            {toast.type === "warning" && (
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            )}
+            {toast.type === "success" && (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            )}
+            {toast.type === "info" && (
+              <Bell className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            )}
             <div>
               <p className="text-xs font-bold uppercase tracking-wide opacity-75">
-                {toast.type === 'warning' ? 'Alert System' : toast.type === 'success' ? 'System Success' : 'Notification'}
+                {toast.type === "warning"
+                  ? "Alert System"
+                  : toast.type === "success"
+                    ? "System Success"
+                    : "Notification"}
               </p>
               <p className="text-sm font-semibold mt-0.5">{toast.message}</p>
             </div>
@@ -394,36 +486,43 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-        
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
               Driver Operations Terminal
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                activeShift 
-                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
-                  : 'bg-slate-100 text-slate-600 border-slate-200'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  activeShift ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'
-                }`}></span>
-                {activeShift ? 'On Shift' : 'Off Duty'}
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                  activeShift
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                    : "bg-slate-100 text-slate-600 border-slate-200"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    activeShift ? "bg-emerald-500 animate-ping" : "bg-slate-400"
+                  }`}
+                ></span>
+                {activeShift ? "On Shift" : "Off Duty"}
               </span>
             </h1>
             <p className="text-sm text-slate-500 font-medium mt-1">
-              Select vehicle, toggle operation statuses, check engine diagnostics and report incidents on duty.
+              Select vehicle, toggle operation statuses, check engine
+              diagnostics and report incidents on duty.
             </p>
           </div>
 
           <div className="text-right text-xs text-slate-550 font-bold bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-xs self-start md:self-auto">
             <span className="text-slate-400 font-normal">OPERATOR: </span>
-            <span className="text-slate-900 font-extrabold mr-2">{driverName}</span>
-            <span className="text-blue-600 font-mono font-normal border-l border-slate-200 pl-2 select-all">{driverEmail}</span>
+            <span className="text-slate-900 font-extrabold mr-2">
+              {driverName}
+            </span>
+            <span className="text-blue-600 font-mono font-normal border-l border-slate-200 pl-2 select-all">
+              {driverEmail}
+            </span>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
           <div className="lg:col-span-5 space-y-6">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 space-y-6">
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -434,7 +533,10 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
               {!activeShift ? (
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="driver-name-input" className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">
+                    <label
+                      htmlFor="driver-name-input"
+                      className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2"
+                    >
                       Driver Name
                     </label>
                     <input
@@ -448,7 +550,10 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                   </div>
 
                   <div>
-                    <label htmlFor="vehicle-select" className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">
+                    <label
+                      htmlFor="vehicle-select"
+                      className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2"
+                    >
                       Assign Fleet Vehicle
                     </label>
                     <select
@@ -457,8 +562,10 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                       onChange={(e) => setSelectedVehicleId(e.target.value)}
                       className="w-full text-sm text-slate-950 border border-slate-300 rounded-xl px-3.5 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50 cursor-pointer"
                     >
-                      <option value="">-- Choose an Available Vehicle --</option>
-                      {availableVehicles.map(v => (
+                      <option value="">
+                        -- Choose an Available Vehicle --
+                      </option>
+                      {availableVehicles.map((v) => (
                         <option key={v.id} value={v.id}>
                           {v.id} - {v.type} ({v.location})
                         </option>
@@ -470,20 +577,29 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                     <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 space-y-2.5 text-xs text-slate-600 font-medium">
                       <div className="flex justify-between">
                         <span>Vehicle Class:</span>
-                        <strong className="text-slate-800">{currentVehicle.type}</strong>
+                        <strong className="text-slate-800">
+                          {currentVehicle.type}
+                        </strong>
                       </div>
                       <div className="flex justify-between">
                         <span>Fuel/Battery Level:</span>
-                        <strong className="text-slate-800">{currentVehicle.fuel}%</strong>
+                        <strong className="text-slate-800">
+                          {currentVehicle.fuel}%
+                        </strong>
                       </div>
                       <div className="flex justify-between">
                         <span>Current Location:</span>
-                        <strong className="text-slate-800">{currentVehicle.location}</strong>
+                        <strong className="text-slate-800">
+                          {currentVehicle.location}
+                        </strong>
                       </div>
                       {currentVehicle.alerts.length > 0 && (
                         <div className="border-t border-blue-200/50 pt-2 flex items-center gap-1.5 text-red-600 font-bold">
                           <AlertCircle className="w-4 h-4 shrink-0" />
-                          <span>{currentVehicle.alerts.length} Active System Warnings!</span>
+                          <span>
+                            {currentVehicle.alerts.length} Active System
+                            Warnings!
+                          </span>
                         </div>
                       )}
                     </div>
@@ -502,35 +618,64 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                 <div className="space-y-6">
                   <div className="bg-slate-900 border border-slate-950 text-white rounded-2xl p-5 text-center shadow-inner relative overflow-hidden">
                     <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block relative z-10">Active Duty Duration</span>
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block relative z-10">
+                      Active Duty Duration
+                    </span>
                     <span className="text-3xl font-black font-mono tracking-wider mt-1.5 block text-emerald-400 relative z-10">
                       {formatTime(shiftSeconds)}
                     </span>
-                    <span className="text-xs text-slate-400 mt-1 block relative z-10">Assigned Vehicle: <strong className="text-white">{selectedVehicleId}</strong></span>
+                    <span className="text-xs text-slate-400 mt-1 block relative z-10">
+                      Assigned Vehicle:{" "}
+                      <strong className="text-white">
+                        {selectedVehicleId}
+                      </strong>
+                    </span>
                   </div>
 
                   <div className="space-y-2.5">
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Operational Status Updates</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      Operational Status Updates
+                    </label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => handleToggleStatus('En Route')}
+                        onClick={() => handleToggleStatus("En Route")}
                         className={`py-2.5 text-xs font-bold border rounded-xl transition-all cursor-pointer text-center ${
-                          currentVehicle?.status === 'En Route'
-                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          currentVehicle?.status === "En Route"
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-sm animate-pulse-subtle"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                         }`}
                       >
                         En Route
                       </button>
                       <button
-                        onClick={() => handleToggleStatus('Idle')}
+                        onClick={() => handleToggleStatus("Idle")}
                         className={`py-2.5 text-xs font-bold border rounded-xl transition-all cursor-pointer text-center ${
-                          currentVehicle?.status === 'Idle'
-                            ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
-                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                          currentVehicle?.status === "Idle"
+                            ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                         }`}
                       >
                         Idle (At Depot)
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus("On Break")}
+                        className={`py-2.5 text-xs font-bold border rounded-xl transition-all cursor-pointer text-center ${
+                          currentVehicle?.status === "On Break"
+                            ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        On Break
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus("Loading")}
+                        className={`py-2.5 text-xs font-bold border rounded-xl transition-all cursor-pointer text-center ${
+                          currentVehicle?.status === "Loading"
+                            ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
+                      >
+                        Loading / Unloading
                       </button>
                     </div>
                   </div>
@@ -560,14 +705,21 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                 <History className="w-4.5 h-4.5 text-slate-500" />
                 Driver Shift Records (Session)
               </h3>
-              
+
               <div className="mt-4 space-y-3 max-h-48 overflow-y-auto pr-1">
                 {localShifts.length > 0 ? (
                   localShifts.map((shift, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs border-b border-slate-50 pb-2.5">
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs border-b border-slate-50 pb-2.5"
+                    >
                       <div>
-                        <strong className="text-slate-900">{shift.vehicleId}</strong>
-                        <span className="text-slate-400 block text-[10px] font-semibold mt-0.5">{shift.date}</span>
+                        <strong className="text-slate-900">
+                          {shift.vehicleId}
+                        </strong>
+                        <span className="text-slate-400 block text-[10px] font-semibold mt-0.5">
+                          {shift.date}
+                        </span>
                       </div>
                       <span className="font-mono bg-slate-50 border border-slate-100 px-2 py-0.5 rounded text-slate-700">
                         {shift.duration}
@@ -575,14 +727,15 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 text-center py-6 font-medium">No shifts completed in this session.</p>
+                  <p className="text-xs text-slate-400 text-center py-6 font-medium">
+                    No shifts completed in this session.
+                  </p>
                 )}
               </div>
             </div>
           </div>
 
           <div className="lg:col-span-7 space-y-6">
-            
             {activeShift && liveTelemetry ? (
               <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-6 space-y-6">
                 <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -596,8 +749,12 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                       <Gauge className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">Current Velocity</span>
-                      <strong className="text-xl font-black text-slate-900">{liveTelemetry.speed} mph</strong>
+                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">
+                        Current Velocity
+                      </span>
+                      <strong className="text-xl font-black text-slate-900">
+                        {liveTelemetry.speed} mph
+                      </strong>
                     </div>
                   </div>
 
@@ -606,13 +763,19 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                       <Battery className="w-6 h-6" />
                     </div>
                     <div className="flex-grow">
-                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">Fuel / Battery Status</span>
+                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">
+                        Fuel / Battery Status
+                      </span>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <strong className="text-xl font-black text-slate-900">{liveTelemetry.fuel}%</strong>
+                        <strong className="text-xl font-black text-slate-900">
+                          {liveTelemetry.fuel}%
+                        </strong>
                         <div className="flex-grow bg-slate-200 h-2 rounded-full overflow-hidden border border-slate-350/10">
-                          <div 
+                          <div
                             className={`h-full rounded-full transition-all duration-300 ${
-                              liveTelemetry.fuel < 25 ? 'bg-red-500' : 'bg-emerald-500'
+                              liveTelemetry.fuel < 25
+                                ? "bg-red-500"
+                                : "bg-emerald-500"
                             }`}
                             style={{ width: `${liveTelemetry.fuel}%` }}
                           />
@@ -623,13 +786,27 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
 
                   <div className="bg-slate-50/50 border border-slate-200/80 rounded-xl p-4 flex items-center gap-4">
                     <div className="bg-slate-100 p-3 rounded-lg text-slate-600">
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                        />
                       </svg>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">Engine Temperature</span>
-                      <strong className={`text-xl font-black ${liveTelemetry.temp > 215 ? 'text-red-650' : 'text-slate-900'}`}>
+                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">
+                        Engine Temperature
+                      </span>
+                      <strong
+                        className={`text-xl font-black ${liveTelemetry.temp > 215 ? "text-red-650" : "text-slate-900"}`}
+                      >
                         {liveTelemetry.temp} °F
                       </strong>
                     </div>
@@ -640,21 +817,34 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                       <Truck className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">Payload Cargo Load</span>
+                      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide block">
+                        Payload Cargo Load
+                      </span>
                       <strong className="text-sm font-bold text-slate-800">
-                        {currentVehicle?.telemetry?.load || 'General Freight'}
+                        {currentVehicle?.telemetry?.load || "General Freight"}
                       </strong>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Live Route Telematics Map</h3>
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Live Route Telematics Map
+                  </h3>
                   <div className="relative h-44 bg-slate-900 border border-slate-950 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner group">
                     <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] opacity-40"></div>
-                    
-                    <svg className="w-full h-full absolute inset-0 text-slate-700/40" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M 30,50 Q 150,20 200,90 T 380,120" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="5, 5" />
+
+                    <svg
+                      className="w-full h-full absolute inset-0 text-slate-700/40"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        d="M 30,50 Q 150,20 200,90 T 380,120"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeDasharray="5, 5"
+                      />
                       <circle cx="200" cy="90" r="4" fill="#3b82f6" />
                       <circle cx="350" cy="60" r="4" fill="#f59e0b" />
                     </svg>
@@ -674,7 +864,7 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                         Loc: {liveTelemetry.location}
                       </span>
                       <span>
-                        Dest: {currentVehicle?.destination || 'Depot'}
+                        Dest: {currentVehicle?.destination || "Depot"}
                       </span>
                     </div>
                   </div>
@@ -685,9 +875,13 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                 <div className="bg-slate-50 border border-slate-100 p-4 rounded-full text-slate-400 mb-4">
                   <Truck className="w-8 h-8" />
                 </div>
-                <h3 className="text-base font-bold text-slate-800">No Shift Session Active</h3>
+                <h3 className="text-base font-bold text-slate-800">
+                  No Shift Session Active
+                </h3>
                 <p className="text-xs text-slate-450 mt-1 max-w-xs leading-relaxed font-medium">
-                  Please select an available vehicle in the Shift Controller on the left, then click Start Shift to initialize telemetry tracking.
+                  Please select an available vehicle in the Shift Controller on
+                  the left, then click Start Shift to initialize telemetry
+                  tracking.
                 </p>
               </div>
             )}
@@ -697,59 +891,70 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                 <AlertTriangle className="w-4.5 h-4.5 text-red-500" />
                 My Incident Logs (Session)
               </h3>
-              
+
               <div className="mt-4 space-y-3.5 max-h-48 overflow-y-auto pr-1">
                 {localIncidents.length > 0 ? (
                   localIncidents.map((incident, idx) => (
-                    <div key={idx} className="text-xs border-b border-slate-50 pb-3 flex items-start justify-between">
+                    <div
+                      key={idx}
+                      className="text-xs border-b border-slate-50 pb-3 flex items-start justify-between"
+                    >
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
-                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                            incident.severity === 'high' 
-                              ? 'bg-red-100 text-red-700' 
-                              : incident.severity === 'medium'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-blue-100 text-blue-700'
-                          }`}>
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                              incident.severity === "high"
+                                ? "bg-red-100 text-red-700"
+                                : incident.severity === "medium"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-blue-100 text-blue-700"
+                            }`}
+                          >
                             {incident.severity}
                           </span>
-                          <strong className="text-slate-900">{incident.type}</strong>
+                          <strong className="text-slate-900">
+                            {incident.type}
+                          </strong>
                         </div>
-                        <p className="text-slate-650 font-semibold">{incident.description}</p>
+                        <p className="text-slate-650 font-semibold">
+                          {incident.description}
+                        </p>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 mt-0.5">{incident.timestamp}</span>
+                      <span className="text-[10px] font-mono text-slate-400 mt-0.5">
+                        {incident.timestamp}
+                      </span>
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 text-center py-6 font-medium">No incidents reported in this session.</p>
+                  <p className="text-xs text-slate-400 text-center py-6 font-medium">
+                    No incidents reported in this session.
+                  </p>
                 )}
               </div>
             </div>
-
           </div>
-
         </div>
-
       </div>
 
       {isReporting && (
         <>
-          <div 
+          <div
             onClick={() => setIsReporting(false)}
             className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200"
           />
 
           <div className="fixed top-0 right-0 z-50 h-screen w-full sm:w-[420px] bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-in slide-in-from-right duration-300">
-            
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div>
                 <h3 className="text-lg font-black text-slate-950 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-red-650" />
                   Report Incident
                 </h3>
-                <p className="text-xs text-slate-405 font-semibold mt-0.5">Asset Warning Dispatcher</p>
+                <p className="text-xs text-slate-405 font-semibold mt-0.5">
+                  Asset Warning Dispatcher
+                </p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsReporting(false)}
                 className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors focus:outline-none cursor-pointer"
               >
@@ -757,16 +962,25 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
               </button>
             </div>
 
-            <form onSubmit={handleSubmitIncident} className="flex-grow flex flex-col justify-between overflow-hidden">
+            <form
+              onSubmit={handleSubmitIncident}
+              className="flex-grow flex flex-col justify-between overflow-hidden"
+            >
               <div className="flex-grow overflow-y-auto p-6 space-y-5">
-                
                 <div className="bg-slate-50 border border-slate-200/60 p-4 rounded-xl flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-semibold">Active Fleet Vehicle:</span>
-                  <strong className="text-slate-900 font-mono text-sm">{selectedVehicleId}</strong>
+                  <span className="text-slate-500 font-semibold">
+                    Active Fleet Vehicle:
+                  </span>
+                  <strong className="text-slate-900 font-mono text-sm">
+                    {selectedVehicleId}
+                  </strong>
                 </div>
 
                 <div>
-                  <label htmlFor="incident-type" className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">
+                  <label
+                    htmlFor="incident-type"
+                    className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2"
+                  >
                     Incident Type
                   </label>
                   <select
@@ -775,12 +989,20 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                     onChange={(e) => setIncidentType(e.target.value)}
                     className="w-full text-sm text-slate-950 border border-slate-300 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50/50 cursor-pointer"
                   >
-                    <option value="Breakdown">Vehicle Breakdown / Engine Fault</option>
+                    <option value="Breakdown">
+                      Vehicle Breakdown / Engine Fault
+                    </option>
                     <option value="Accident">Accident / Collision</option>
-                    <option value="Fuel/Refill">Refuel / Critical Recharging</option>
-                    <option value="Route Block">Traffic / Road Block / Closure</option>
+                    <option value="Fuel/Refill">
+                      Refuel / Critical Recharging
+                    </option>
+                    <option value="Route Block">
+                      Traffic / Road Block / Closure
+                    </option>
                     <option value="Weather Delay">Severe Weather Hazard</option>
-                    <option value="Medical Alert">Medical / Crew Emergency</option>
+                    <option value="Medical Alert">
+                      Medical / Crew Emergency
+                    </option>
                     <option value="Other">Other Operational Issue</option>
                   </select>
                 </div>
@@ -790,19 +1012,19 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                     Severity Level
                   </label>
                   <div className="grid grid-cols-3 gap-2">
-                    {['low', 'medium', 'high'].map((severity) => (
+                    {["low", "medium", "high"].map((severity) => (
                       <button
                         key={severity}
                         type="button"
                         onClick={() => setIncidentSeverity(severity)}
                         className={`py-2 text-xs font-bold border rounded-xl transition-all cursor-pointer uppercase text-center ${
                           incidentSeverity === severity
-                            ? severity === 'high' 
-                              ? 'bg-red-50 text-red-700 border-red-300 shadow-3xs'
-                              : severity === 'medium'
-                                ? 'bg-amber-50 text-amber-700 border-amber-300 shadow-3xs'
-                                : 'bg-blue-50 text-blue-700 border-blue-300 shadow-3xs'
-                            : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                            ? severity === "high"
+                              ? "bg-red-50 text-red-700 border-red-300 shadow-3xs"
+                              : severity === "medium"
+                                ? "bg-amber-50 text-amber-700 border-amber-300 shadow-3xs"
+                                : "bg-blue-50 text-blue-700 border-blue-300 shadow-3xs"
+                            : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
                         }`}
                       >
                         {severity}
@@ -812,7 +1034,10 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                 </div>
 
                 <div>
-                  <label htmlFor="incident-location" className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">
+                  <label
+                    htmlFor="incident-location"
+                    className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2"
+                  >
                     Current Location (City, State / Landmark)
                   </label>
                   <input
@@ -827,7 +1052,10 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                 </div>
 
                 <div>
-                  <label htmlFor="incident-desc" className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">
+                  <label
+                    htmlFor="incident-desc"
+                    className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2"
+                  >
                     Detailed Report / Description
                   </label>
                   <textarea
@@ -840,7 +1068,6 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                     className="w-full text-slate-900 placeholder-slate-400 border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
                   />
                 </div>
-
               </div>
 
               <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex gap-3">
@@ -856,16 +1083,15 @@ export default function DriverDashboard({ vehicles, setVehicles, setLogs, user }
                   disabled={isSubmittingIncident}
                   className="w-2/3 py-3 border border-transparent rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:bg-red-800 disabled:bg-red-400 disabled:cursor-not-allowed transition-colors cursor-pointer text-center"
                 >
-                  {isSubmittingIncident ? 'Submitting...' : 'Submit Alert Dispatch'}
+                  {isSubmittingIncident
+                    ? "Submitting..."
+                    : "Submit Alert Dispatch"}
                 </button>
               </div>
-
             </form>
-
           </div>
         </>
       )}
-
     </div>
   );
 }
