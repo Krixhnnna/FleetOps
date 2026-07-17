@@ -1,4 +1,6 @@
-const API_BASE = 'http://localhost:5000/api';
+import { getApiUrl } from './config';
+
+const API_BASE = getApiUrl('/api');
 
 const handleResponse = async (response) => {
   if (!response.ok) {
