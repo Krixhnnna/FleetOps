@@ -3,7 +3,7 @@ import {
   FileSpreadsheet, ShieldAlert, ShieldCheck, 
   ArrowLeft, Loader2, Download, AlertTriangle, Lock 
 } from 'lucide-react';
-import { API_BASE } from '../api';
+import { getApiUrl } from '../config';
 
 export default function ExportHub({ onNavigate, user }) {
   const [dateRange, setDateRange] = useState('current_week');
@@ -39,7 +39,7 @@ export default function ExportHub({ onNavigate, user }) {
       }
       
       // Hit the backend endpoint with role query param fallback and cache-buster
-      const response = await fetch(`${API_BASE}/reports/export-csv?range=${dateRange}&role=${roleToSend}&_t=${Date.now()}`, {
+      const response = await fetch(getApiUrl(`/api/reports/export-csv?range=${dateRange}&role=${roleToSend}&_t=${Date.now()}`), {
         method: 'GET',
         headers: headers
       });

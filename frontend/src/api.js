@@ -1,4 +1,6 @@
-export const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? 'http://localhost:5001/api' : '/api');
+import { getApiUrl } from './config';
+
+const API_BASE = getApiUrl('/api');
 
 const handleResponse = async (response) => {
   if (!response.ok) {
