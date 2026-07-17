@@ -35,7 +35,7 @@ const runTests = async () => {
   try {
     const loginRes = await makeRequest({
       hostname: 'localhost',
-      port: 5000,
+      port: 5001,
       path: '/api/auth/login',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
@@ -45,10 +45,10 @@ const runTests = async () => {
     });
     
     const body = JSON.parse(loginRes.body);
-    if (loginRes.statusCode === 200 && body.role === 'Admin') {
+    if (loginRes.statusCode === 200 && body.user && body.user.role === 'admin') {
       log('Unified login API correctly authenticates and returns credentials.');
     } else {
-      log(`Unified login returned status ${loginRes.statusCode} with role ${body.role}`, false);
+      log(`Unified login returned status ${loginRes.statusCode} with role ${body.user?.role}`, false);
     }
   } catch (err) {
     log(`Login test failed to connect: ${err.message}`, false);
@@ -58,11 +58,11 @@ const runTests = async () => {
   try {
     const driverRes = await makeRequest({
       hostname: 'localhost',
-      port: 5000,
+      port: 5001,
       path: '/api/reports/export-csv?range=current_week',
       method: 'GET',
       headers: {
-        'x-user-role': 'Driver'
+        'x-user-role': 'driver'
       }
     });
 
@@ -79,11 +79,11 @@ const runTests = async () => {
   try {
     const managerRes = await makeRequest({
       hostname: 'localhost',
-      port: 5000,
+      port: 5001,
       path: '/api/reports/export-csv?range=current_week',
       method: 'GET',
       headers: {
-        'x-user-role': 'FleetManager'
+        'x-user-role': 'manager'
       }
     });
 
@@ -105,21 +105,21 @@ const runTests = async () => {
   try {
     const todayRes = await makeRequest({
       hostname: 'localhost',
-      port: 5000,
+      port: 5001,
       path: '/api/reports/export-csv?range=today',
       method: 'GET',
       headers: {
-        'x-user-role': 'Admin'
+        'x-user-role': 'admin'
       }
     });
 
     const allRes = await makeRequest({
       hostname: 'localhost',
-      port: 5000,
+      port: 5001,
       path: '/api/reports/export-csv?range=last_30_days',
       method: 'GET',
       headers: {
-        'x-user-role': 'Admin'
+        'x-user-role': 'admin'
       }
     });
 

@@ -65,21 +65,7 @@ export default function Contact() {
                 <div>
                   <h4 className="text-sm font-bold text-slate-900">Corporate HQ</h4>
                   <p className="text-sm text-slate-600 mt-1 leading-relaxed">
-                    100 Pine Street, Suite 2400 <br />
-                    San Francisco, CA 94111
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center text-slate-600">
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">West Coast Operations Terminal</h4>
-                  <p className="text-sm text-slate-600 mt-1 leading-relaxed">
-                    2400 Maritime St, Berth 32 <br />
-                    Oakland, CA 94607
+                    LPU, Punjab
                   </p>
                 </div>
               </div>
