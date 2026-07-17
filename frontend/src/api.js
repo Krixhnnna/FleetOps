@@ -139,5 +139,33 @@ export const api = {
       })
     });
     return handleResponse(response);
+  },
+
+  async submitQuery(queryData) {
+    const response = await fetch(`${API_BASE}/queries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(queryData)
+    });
+    return handleResponse(response);
+  },
+
+  async getQueries(role) {
+    const response = await fetch(`${API_BASE}/queries?role=${role}`, {
+      headers: getAuthHeaders({
+        'x-user-role': role
+      })
+    });
+    return handleResponse(response);
+  },
+
+  async deleteQuery(id, role) {
+    const response = await fetch(`${API_BASE}/queries/${id}?role=${role}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders({
+        'x-user-role': role
+      })
+    });
+    return handleResponse(response);
   }
 };

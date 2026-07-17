@@ -9,6 +9,7 @@ import Log from './models/Log.js';
 import Shift from './models/Shift.js';
 import Incident from './models/Incident.js';
 import Report from './models/Report.js';
+import Query from './models/Query.js';
 
 import { verifyRole, loginUser, MOCK_USERS, addMockUser } from './auth.js';
 import { validateLogin, validateRegister } from './validators.js';
@@ -470,6 +471,64 @@ app.post('/api/logs', async (req, res) => {
 
     const logs = await Log.find().sort({ createdAt: -1 }).limit(20);
     res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Public Contact Inquiry Endpoint (Landing Page Contact Form)
+app.post('/api/queries', async (req, res) => {
+  const { name, email, fleetSize, message } = req.body;
+  if (!name || !email || !fleetSize || !message) {
+    return res.status(400).json({ error: 'All fields are required.' });
+  }
+
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.log('MongoDB not connected. Handling landing page query in mock mode.');
+      return res.status(201).json({ success: true, message: 'Mock query received.' });
+    }
+
+    const newQuery = new Query({ name, email, fleetSize, message });
+    await newQuery.save();
+
+    res.status(201).json({ success: true, query: newQuery });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Queries Endpoint (Admin & Manager)
+app.get('/api/queries', verifyRole(['admin', 'manager']), async (req, res) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json([
+        { _id: 'mock-1', name: 'John Doe', email: 'john@gmail.com', fleetSize: '51-200', message: 'Hi there, we would love a custom TMS integration audit for our 80 delivery trucks.', createdAt: new Date() },
+        { _id: 'mock-2', name: 'Sarah Jenkins', email: 'sjenkins@depot.com', fleetSize: '500+', message: 'Looking for bulk pricing details for enterprise active route dispatching.', createdAt: new Date(Date.now() - 3600000) }
+      ]);
+    }
+
+    const queries = await Query.find().sort({ createdAt: -1 });
+    res.json(queries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete Query / Mark as Resolved Endpoint (Admin & Manager)
+app.delete('/api/queries/:id', verifyRole(['admin', 'manager']), async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({ success: true, message: 'Mock query deleted.' });
+    }
+
+    const deleted = await Query.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Query not found.' });
+    }
+
+    res.json({ success: true, message: 'Query deleted successfully.' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

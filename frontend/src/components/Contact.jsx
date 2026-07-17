@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, MapPin, CheckCircle2, Loader2 } from 'lucide-react';
+import { api } from '../api';
 
 export default function Contact() {
   const [name, setName] = useState('');
@@ -9,7 +10,7 @@ export default function Contact() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name || !email || !message) {
       alert('Please fill out all required fields.');
@@ -17,14 +18,18 @@ export default function Contact() {
     }
 
     setIsSubmitting(true);
-    // Simulate submission
-    setTimeout(() => {
+    try {
+      await api.submitQuery({ name, email, fleetSize, message });
       setIsSubmitting(false);
       setSubmitted(true);
       setName('');
       setEmail('');
       setMessage('');
-    }, 1200);
+    } catch (err) {
+      console.error('Failed to submit inquiry:', err.message);
+      alert('There was a problem submitting your inquiry. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   return (

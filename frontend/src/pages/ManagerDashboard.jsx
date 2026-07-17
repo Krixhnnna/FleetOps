@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Truck, Users, Wrench, Clock, Search, Activity, 
   Battery, Gauge, MapPin, AlertTriangle, 
-  TrendingUp, X, Play, Square, Bell, CheckCircle2, ChevronRight
+  TrendingUp, X, Play, Square, Bell, CheckCircle2, ChevronRight, Mail
 } from 'lucide-react';
 import { api } from '../api';
 
@@ -83,6 +83,39 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs,
       setRegisterLoading(false);
     }
   };
+
+  // Customer Inquiries States
+  const [inquiries, setInquiries] = useState([]);
+  const [inquiriesLoading, setInquiriesLoading] = useState(false);
+
+  const fetchInquiries = useCallback(async () => {
+    if (!user || (user.role !== 'admin' && user.role !== 'manager')) return;
+    setInquiriesLoading(true);
+    try {
+      const data = await api.getQueries(user.role);
+      setInquiries(data);
+    } catch (err) {
+      console.warn('Failed to load inquiries:', err.message);
+      showToast('Failed to load customer inquiries.', 'warning');
+    } finally {
+      setInquiriesLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchInquiries();
+  }, [fetchInquiries]);
+
+  const handleMarkAsResolved = async (id) => {
+    try {
+      await api.deleteQuery(id, user.role);
+      showToast('Query marked as resolved and removed.', 'success');
+      fetchInquiries();
+    } catch (err) {
+      showToast(err.message || 'Failed to update query status.', 'warning');
+    }
+  };
+
 
   
   const selectedVehicle = useMemo(() => {
@@ -366,11 +399,11 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs,
           </div>
         </div>
 
-        {user?.role === 'admin' && (
+        {(user?.role === 'admin' || user?.role === 'manager') && (
           <div className="flex border-b border-slate-200 mb-6 gap-2 select-none">
             <button
               onClick={() => setActiveTab('fleet')}
-              className={`pb-3 text-sm font-bold border-b-2 px-4 transition-all duration-200 cursor-pointer focus:outline-none ${
+              className={`pb-3 text-sm font-bold border-b-2 px-4 transition-all duration-205 cursor-pointer focus:outline-none ${
                 activeTab === 'fleet'
                   ? 'border-blue-600 text-blue-600 font-extrabold'
                   : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -378,20 +411,37 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs,
             >
               Fleet Terminal
             </button>
+            {user?.role === 'admin' && (
+              <button
+                onClick={() => setActiveTab('drivers')}
+                className={`pb-3 text-sm font-bold border-b-2 px-4 transition-all duration-205 cursor-pointer focus:outline-none ${
+                  activeTab === 'drivers'
+                    ? 'border-blue-600 text-blue-600 font-extrabold'
+                    : 'border-transparent text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                Driver Management
+              </button>
+            )}
             <button
-              onClick={() => setActiveTab('drivers')}
-              className={`pb-3 text-sm font-bold border-b-2 px-4 transition-all duration-200 cursor-pointer focus:outline-none ${
-                activeTab === 'drivers'
+              onClick={() => setActiveTab('inquiries')}
+              className={`pb-3 text-sm font-bold border-b-2 px-4 transition-all duration-205 cursor-pointer focus:outline-none flex items-center ${
+                activeTab === 'inquiries'
                   ? 'border-blue-600 text-blue-600 font-extrabold'
                   : 'border-transparent text-slate-500 hover:text-slate-900'
               }`}
             >
-              Driver Management
+              Customer Inquiries
+              {inquiries.length > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.5 text-[9px] font-black bg-blue-100 text-blue-800 rounded-full border border-blue-200 flex items-center justify-center min-w-[16px] h-4 leading-none">
+                  {inquiries.length}
+                </span>
+              )}
             </button>
           </div>
         )}
 
-        {activeTab === 'drivers' ? (
+        {activeTab === 'drivers' && user?.role === 'admin' ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-200">
             {/* Left: Driver Registration Card */}
             <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-xs p-6 space-y-6">
@@ -427,7 +477,7 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs,
                     placeholder="driver@company.com"
                     value={registerEmail}
                     onChange={(e) => setRegisterEmail(e.target.value)}
-                    className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-950 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
+                    className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-955 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
                   />
                 </div>
 
@@ -450,7 +500,7 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs,
                     placeholder="Enter or generate password"
                     value={registerPassword}
                     onChange={(e) => setRegisterPassword(e.target.value)}
-                    className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-950 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
+                    className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-955 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
                   />
                 </div>
 
@@ -473,7 +523,7 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs,
                 </div>
                 <button
                   onClick={fetchDrivers}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-all cursor-pointer bg-white"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-650 hover:text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-all cursor-pointer bg-white"
                 >
                   Refresh Directory
                 </button>
@@ -522,6 +572,80 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs,
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        ) : activeTab === 'inquiries' ? (
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col animate-in fade-in duration-200 text-left">
+            <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                  Landing Page Customer Inquiries
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Direct requests submitted by potential clients from the landing page.
+                </p>
+              </div>
+              <button
+                onClick={fetchInquiries}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-all cursor-pointer bg-white"
+              >
+                Refresh Messages
+              </button>
+            </div>
+
+            <div className="p-6">
+              {inquiriesLoading ? (
+                <div className="py-20 text-center text-slate-500 text-sm font-medium">
+                  <span className="inline-block animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full mr-2"></span>
+                  Loading customer inquiries...
+                </div>
+              ) : inquiries.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {inquiries.map((inq) => (
+                    <div key={inq._id} className="bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col justify-between hover:shadow-md hover:border-slate-300 transition-all">
+                      <div className="space-y-3.5">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-bold text-sm text-slate-900">{inq.name}</h3>
+                            <a href={`mailto:${inq.email}`} className="text-xs text-blue-600 hover:underline font-semibold block mt-0.5">
+                              {inq.email}
+                            </a>
+                          </div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            Fleet Size: {inq.fleetSize}
+                          </span>
+                        </div>
+
+                        <div className="bg-white border border-slate-200/50 rounded-xl p-3.5 text-xs text-slate-700 font-medium leading-relaxed italic">
+                          "{inq.message}"
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-200/60 pt-4 mt-4 flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 font-bold">
+                          Submitted {new Date(inq.createdAt || Date.now()).toLocaleDateString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                        <button
+                          onClick={() => handleMarkAsResolved(inq._id)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-650 hover:text-white hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-lg px-2.5 py-1.5 transition-all cursor-pointer bg-white"
+                        >
+                          Mark as Resolved
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-20 text-center text-slate-400 text-sm font-medium">
+                  No open customer inquiries. All caught up!
+                </div>
+              )}
             </div>
           </div>
         ) : (
