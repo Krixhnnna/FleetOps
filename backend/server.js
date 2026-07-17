@@ -484,7 +484,7 @@ app.post('/api/queries', async (req, res) => {
   }
 
   try {
-    if (mongoose.connection.readyState !== 1) {
+    if (!MONGODB_URI) {
       console.log('MongoDB not connected. Handling landing page query in mock mode.');
       return res.status(201).json({ success: true, message: 'Mock query received.' });
     }
@@ -501,7 +501,7 @@ app.post('/api/queries', async (req, res) => {
 // Get Queries Endpoint (Admin & Manager)
 app.get('/api/queries', verifyRole(['admin', 'manager']), async (req, res) => {
   try {
-    if (mongoose.connection.readyState !== 1) {
+    if (!MONGODB_URI) {
       return res.json([
         { _id: 'mock-1', name: 'John Doe', email: 'john@gmail.com', fleetSize: '51-200', message: 'Hi there, we would love a custom TMS integration audit for our 80 delivery trucks.', createdAt: new Date() },
         { _id: 'mock-2', name: 'Sarah Jenkins', email: 'sjenkins@depot.com', fleetSize: '500+', message: 'Looking for bulk pricing details for enterprise active route dispatching.', createdAt: new Date(Date.now() - 3600000) }
@@ -519,7 +519,7 @@ app.get('/api/queries', verifyRole(['admin', 'manager']), async (req, res) => {
 app.delete('/api/queries/:id', verifyRole(['admin', 'manager']), async (req, res) => {
   const { id } = req.params;
   try {
-    if (mongoose.connection.readyState !== 1) {
+    if (!MONGODB_URI) {
       return res.json({ success: true, message: 'Mock query deleted.' });
     }
 
