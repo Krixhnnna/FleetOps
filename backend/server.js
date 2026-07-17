@@ -10,6 +10,8 @@ import Shift from './models/Shift.js';
 import Incident from './models/Incident.js';
 import Report from './models/Report.js';
 
+import { verifyRole, loginUser } from './auth.js';
+
 dotenv.config();
 
 const app = express();
@@ -37,6 +39,18 @@ if (!MONGODB_URI) {
 const getFormattedTime = () => {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 };
+
+// Global Mock Report Data for seeding and in-memory fallback
+const MOCK_REPORT_DATA = [
+  { date: new Date(), vehId: 'VAN-101', driver: 'Alex Rivera', status: 'En Route', shift: '08:00 UTC', hours: '4.5', note: 'Sector 4 delivery completed' },
+  { date: new Date(), vehId: 'VAN-102', driver: 'Samantha Smith', status: 'En Route', shift: '08:15 UTC', hours: '4.2', note: 'North Hub route active' },
+  { date: new Date(), vehId: 'VAN-104', driver: 'David Kim', status: 'Maintenance', shift: '07:15 UTC', hours: '2.0', note: 'Flat right tire' },
+  { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), vehId: 'VAN-103', driver: 'Marcus Chen', status: 'Idle', shift: 'Not Started', hours: '0.0', note: 'Base Depot' },
+  { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), vehId: 'VAN-101', driver: 'Alex Rivera', status: 'En Route', shift: '08:00 UTC', hours: '7.5', note: 'Route 66 delivery' },
+  { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), vehId: 'VAN-105', driver: 'Sarah Jenkins', status: 'Idle', shift: '10:00 UTC', hours: '6.0', note: 'Depot B' },
+  { date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), vehId: 'VAN-102', driver: 'Samantha Smith', status: 'Idle', shift: '08:15 UTC', hours: '8.0', note: 'Completed shift' },
+  { date: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), vehId: 'VAN-104', driver: 'David Kim', status: 'Maintenance', shift: '07:00 UTC', hours: '4.0', note: 'Oil change service' }
+];
 
 // Database seeding helper
 async function seedDatabase() {
@@ -90,17 +104,7 @@ async function seedDatabase() {
     const reportCount = await Report.countDocuments();
     if (reportCount === 0) {
       console.log('🌱 Seeding default report data...');
-      const seedReports = [
-        { date: new Date(), vehId: 'VAN-101', driver: 'Alex Rivera', status: 'En Route', shift: '08:00 UTC', hours: '4.5', note: 'Sector 4 delivery completed' },
-        { date: new Date(), vehId: 'VAN-102', driver: 'Samantha Smith', status: 'En Route', shift: '08:15 UTC', hours: '4.2', note: 'North Hub route active' },
-        { date: new Date(), vehId: 'VAN-104', driver: 'David Kim', status: 'Maintenance', shift: '07:15 UTC', hours: '2.0', note: 'Flat right tire' },
-        { date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), vehId: 'VAN-103', driver: 'Marcus Chen', status: 'Idle', shift: 'Not Started', hours: '0.0', note: 'Base Depot' },
-        { date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), vehId: 'VAN-101', driver: 'Alex Rivera', status: 'En Route', shift: '08:00 UTC', hours: '7.5', note: 'Route 66 delivery' },
-        { date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), vehId: 'VAN-105', driver: 'Sarah Jenkins', status: 'Idle', shift: '10:00 UTC', hours: '6.0', note: 'Depot B' },
-        { date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), vehId: 'VAN-102', driver: 'Samantha Smith', status: 'Idle', shift: '08:15 UTC', hours: '8.0', note: 'Completed shift' },
-        { date: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), vehId: 'VAN-104', driver: 'David Kim', status: 'Maintenance', shift: '07:00 UTC', hours: '4.0', note: 'Oil change service' }
-      ];
-      await Report.insertMany(seedReports);
+      await Report.insertMany(MOCK_REPORT_DATA);
       console.log('✅ Seeding reports completed.');
     }
   } catch (error) {
@@ -108,25 +112,7 @@ async function seedDatabase() {
   }
 }
 
-// Middleware to verify authorization role
-function verifyRole(allowedRoles) {
-  return (req, res, next) => {
-    console.log('Incoming headers for verification:', req.headers);
-    console.log('Incoming query params:', req.query);
-    const userRole = req.headers['x-user-role'] || req.query.role;
-    
-    if (!userRole) {
-      console.log('No x-user-role header or query parameter found in request.');
-      return res.status(401).json({ message: 'Unauthorized: No operational role provided.' });
-    }
-    if (!allowedRoles.includes(userRole)) {
-      return res.status(403).json({ 
-        message: 'Security Guardrail: Access Denied. Role strictly unauthorized for Export Hub operations.' 
-      });
-    }
-    next();
-  };
-}
+
 
 // Server Health Endpoints
 app.get('/', (req, res) => {
@@ -143,29 +129,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Authentication Endpoint
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Please provide email and password.' });
-  }
-
-  try {
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user || user.password !== password) {
-      return res.status(401).json({ error: 'Invalid credentials. Access Denied.' });
-    }
-
-    res.json({
-      success: true,
-      user: {
-        email: user.email,
-        role: user.role
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+app.post('/api/auth/login', loginUser);
 
 // Vehicle Endpoints
 app.get('/api/vehicles', async (req, res) => {
@@ -443,23 +407,39 @@ app.get('/api/reports/export-csv', verifyRole(['admin', 'manager']), async (req,
   const { range } = req.query;
   
   try {
-    let query = {};
+    let reports = [];
     
-    if (range === 'today') {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date();
-      endOfDay.setHours(23, 59, 59, 999);
-      query.date = { $gte: startOfDay, $lte: endOfDay };
-    } else if (range === 'last_30_days') {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-      query.date = { $gte: thirtyDaysAgo };
+    if (mongoose.connection.readyState !== 1) {
+      console.log('MongoDB not connected. Using MOCK_REPORT_DATA in-memory fallback for CSV export.');
+      const now = new Date();
+      if (range === 'today') {
+        reports = MOCK_REPORT_DATA.filter(item => {
+          return item.date.toDateString() === now.toDateString();
+        });
+      } else if (range === 'last_30_days') {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        reports = MOCK_REPORT_DATA.filter(item => item.date >= thirtyDaysAgo);
+      } else {
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        reports = MOCK_REPORT_DATA.filter(item => item.date >= oneWeekAgo);
+      }
     } else {
-      const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-      query.date = { $gte: oneWeekAgo };
+      let query = {};
+      if (range === 'today') {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        query.date = { $gte: startOfDay, $lte: endOfDay };
+      } else if (range === 'last_30_days') {
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        query.date = { $gte: thirtyDaysAgo };
+      } else {
+        const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        query.date = { $gte: oneWeekAgo };
+      }
+      reports = await Report.find(query);
     }
-    
-    const reports = await Report.find(query);
     
     let csv = 'VEH ID,ASSIGNED DRIVER,STATUS,SHIFT (UTC),HOURS WORKED,NOTES,DATE\n';
     reports.forEach(item => {
