@@ -1,11 +1,19 @@
 import mongoose from 'mongoose';
 import User from './models/User.js';
 
-const MOCK_USERS = [
+export let MOCK_USERS = [
   { email: 'admin@fleetops.com', password: 'admin123', role: 'admin' },
   { email: 'manager@fleetops.com', password: 'manager123', role: 'manager' },
   { email: 'driver@fleetops.com', password: 'driver123', role: 'driver' }
 ];
+
+export function addMockUser(email, password, role) {
+  const emailLower = email.toLowerCase();
+  const exists = MOCK_USERS.some(u => u.email.toLowerCase() === emailLower);
+  if (exists) return false;
+  MOCK_USERS.push({ email: emailLower, password, role });
+  return true;
+}
 
 // Middleware to verify authorization role
 export function verifyRole(allowedRoles) {

@@ -10,7 +10,9 @@ import Shift from './models/Shift.js';
 import Incident from './models/Incident.js';
 import Report from './models/Report.js';
 
-import { verifyRole, loginUser } from './auth.js';
+import { verifyRole, loginUser, MOCK_USERS, addMockUser } from './auth.js';
+import { validateLogin, validateRegister } from './validators.js';
+
 
 dotenv.config();
 
@@ -129,7 +131,78 @@ app.get('/api/health', (req, res) => {
 });
 
 // Authentication Endpoint
-app.post('/api/auth/login', loginUser);
+app.post('/api/auth/login', validateLogin, loginUser);
+
+// Driver Registration Endpoint (Admin only)
+app.post('/api/auth/register-driver', verifyRole(['admin']), validateRegister, async (req, res) => {
+  const { email, password } = req.body;
+  const emailLower = email.toLowerCase();
+
+  // Handle in-memory fallback if MongoDB is not connected
+  if (mongoose.connection.readyState !== 1) {
+    console.log('MongoDB not connected. Using in-memory fallback for driver registration.');
+    const added = addMockUser(emailLower, password, 'driver');
+    if (!added) {
+      return res.status(400).json({ error: 'A user with this email is already registered.' });
+    }
+    return res.status(201).json({
+      success: true,
+      user: {
+        email: emailLower,
+        role: 'driver'
+      }
+    });
+  }
+
+  try {
+    const newUser = new User({
+      email: emailLower,
+      password,
+      role: 'driver'
+    });
+    await newUser.save();
+
+    // Create system log for registration
+    const newLog = new Log({
+      timestamp: getFormattedTime(),
+      vehicleId: 'SYSTEM',
+      event: `Admin registered new driver: ${emailLower}`,
+      type: 'success'
+    });
+    await newLog.save();
+
+    res.status(201).json({
+      success: true,
+      user: {
+        email: newUser.email,
+        role: newUser.role
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Drivers List Endpoint (Admin & Manager)
+app.get('/api/drivers', verifyRole(['admin', 'manager']), async (req, res) => {
+  // Handle in-memory fallback if MongoDB is not connected
+  if (mongoose.connection.readyState !== 1) {
+    const drivers = MOCK_USERS.filter(u => u.role === 'driver').map(u => ({
+      email: u.email,
+      role: u.role,
+      createdAt: new Date()
+    }));
+    return res.json(drivers);
+  }
+
+  try {
+    const drivers = await User.find({ role: 'driver' }).select('-password').sort({ createdAt: -1 });
+    res.json(drivers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Vehicle Endpoints
 app.get('/api/vehicles', async (req, res) => {

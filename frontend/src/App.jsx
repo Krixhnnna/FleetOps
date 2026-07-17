@@ -127,6 +127,7 @@ function App() {
                 setVehicles={setVehicles} 
                 logs={logs} 
                 setLogs={setLogs} 
+                user={user}
               />
             ) : view === 'driver-dashboard' ? (
               <DriverDashboard 

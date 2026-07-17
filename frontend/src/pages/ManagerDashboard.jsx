@@ -6,12 +6,83 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 
-export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs }) {
+export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs, user }) {
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [toasts, setToasts] = useState([]);
+
+  // Tab control (Fleet Terminal vs Driver Management)
+  const [activeTab, setActiveTab] = useState('fleet');
+
+  // Driver management states
+  const [drivers, setDrivers] = useState([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerLoading, setRegisterLoading] = useState(false);
+  const [registerError, setRegisterError] = useState('');
+  const [registerSuccess, setRegisterSuccess] = useState('');
+
+  const fetchDrivers = useCallback(async () => {
+    if (!user || (user.role !== 'admin' && user.role !== 'manager')) return;
+    setDriversLoading(true);
+    try {
+      const data = await api.getDrivers(user.role);
+      setDrivers(data);
+    } catch (err) {
+      console.warn('Failed to load drivers:', err.message);
+      showToast('Failed to load driver roster.', 'warning');
+    } finally {
+      setDriversLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === 'drivers') {
+      fetchDrivers();
+    }
+  }, [activeTab, fetchDrivers]);
+
+  const handleGeneratePassword = () => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let pass = '';
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setRegisterPassword(pass);
+  };
+
+  const handleRegisterDriver = async (e) => {
+    e.preventDefault();
+    setRegisterError('');
+    setRegisterSuccess('');
+
+    if (!registerEmail || !registerPassword) {
+      setRegisterError('Please fill in all registration fields.');
+      return;
+    }
+
+    if (registerPassword.length < 6) {
+      setRegisterError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setRegisterLoading(true);
+    try {
+      await api.registerDriver({ email: registerEmail, password: registerPassword }, user?.role || 'admin');
+      setRegisterSuccess(`Driver ${registerEmail} registered successfully!`);
+      showToast(`Registered driver: ${registerEmail}`, 'success');
+      setRegisterEmail('');
+      setRegisterPassword('');
+      fetchDrivers();
+    } catch (err) {
+      setRegisterError(err.message || 'Registration failed.');
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
 
   
   const selectedVehicle = useMemo(() => {
@@ -295,319 +366,481 @@ export default function ManagerDashboard({ vehicles, setVehicles, logs, setLogs 
           </div>
         </div>
 
-        {}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          
-          {}
-          <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Fleet Size</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{stats.total} Vehicles</h3>
-              <p className="text-[10px] text-slate-400 font-semibold mt-1 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3 text-emerald-500" /> 
-                100% capacity tracked
-              </p>
-            </div>
-            <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-              <Truck className="w-6 h-6" />
-            </div>
+        {user?.role === 'admin' && (
+          <div className="flex border-b border-slate-200 mb-6 gap-2 select-none">
+            <button
+              onClick={() => setActiveTab('fleet')}
+              className={`pb-3 text-sm font-bold border-b-2 px-4 transition-all duration-200 cursor-pointer focus:outline-none ${
+                activeTab === 'fleet'
+                  ? 'border-blue-600 text-blue-600 font-extrabold'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Fleet Terminal
+            </button>
+            <button
+              onClick={() => setActiveTab('drivers')}
+              className={`pb-3 text-sm font-bold border-b-2 px-4 transition-all duration-200 cursor-pointer focus:outline-none ${
+                activeTab === 'drivers'
+                  ? 'border-blue-600 text-blue-600 font-extrabold'
+                  : 'border-transparent text-slate-500 hover:text-slate-900'
+              }`}
+            >
+              Driver Management
+            </button>
           </div>
+        )}
 
-          {}
-          <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Active (En Route)</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
-                {stats.enRoute}
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping inline-block"></span>
-              </h3>
-              <p className="text-[10px] text-emerald-600 font-semibold mt-1">
-                {Math.round((stats.enRoute / stats.total) * 100)}% active utilization
-              </p>
-            </div>
-            <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
-              <Activity className="w-6 h-6" />
-            </div>
-          </div>
-
-          {}
-          <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Idle (Available)</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{stats.idle} Depot</h3>
-              <p className="text-[10px] text-amber-600 font-semibold mt-1">
-                Ready for route dispatch
-              </p>
-            </div>
-            <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-amber-50 group-hover:text-amber-600 transition-colors">
-              <Clock className="w-6 h-6" />
-            </div>
-          </div>
-
-          {}
-          <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Under Maintenance</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
-                {stats.maintenance}
-                {stats.activeAlerts > 0 && (
-                  <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-200 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    {stats.activeAlerts} Issue{stats.activeAlerts > 1 ? 's' : ''}
-                  </span>
-                )}
-              </h3>
-              <p className="text-[10px] text-red-500 font-semibold mt-1">
-                Critical workshop bay diagnostics
-              </p>
-            </div>
-            <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
-              <Wrench className="w-6 h-6" />
-            </div>
-          </div>
-
-        </div>
-
-        {}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {}
-          <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col overflow-hidden">
-            
-            {}
-            <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              
-              {}
-              <div className="relative w-full sm:max-w-xs">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Search className="w-4 h-4" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search fleet, drivers, locations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full text-slate-900 placeholder-slate-400 pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
+        {activeTab === 'drivers' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-in fade-in duration-200">
+            {/* Left: Driver Registration Card */}
+            <div className="lg:col-span-5 bg-white border border-slate-200 rounded-2xl shadow-xs p-6 space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-blue-600" />
+                  Register New Driver
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-1">
+                  Provision a new unique driver account. The credentials can be immediately used to log in to the Driver Portal.
+                </p>
               </div>
 
-              {}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {['All', 'En Route', 'Idle', 'Maintenance'].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => setFilterStatus(status)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                      filterStatus === status
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-
-            </div>
-
-            {}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200">
-                    <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Vehicle ID</th>
-                    <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Operator / Type</th>
-                    <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                    <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Fuel / Battery</th>
-                    <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Speed / Location</th>
-                    <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredVehicles.length > 0 ? (
-                    filteredVehicles.map((vehicle) => {
-                      const isSelected = selectedVehicleId === vehicle.id;
-                      return (
-                        <tr 
-                          key={vehicle.id}
-                          onClick={() => setSelectedVehicleId(vehicle.id)}
-                          className={`hover:bg-slate-50/60 transition-colors cursor-pointer group select-none ${
-                            isSelected ? 'bg-blue-50/40 hover:bg-blue-50/50' : ''
-                          }`}
-                        >
-                          {}
-                          <td className="py-4 px-5 align-middle">
-                            <span className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
-                              {vehicle.id}
-                            </span>
-                            {vehicle.alerts.length > 0 && (
-                              <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
-                                !
-                              </span>
-                            )}
-                          </td>
-
-                          {}
-                          <td className="py-4 px-5 align-middle">
-                            <div className="font-semibold text-sm text-slate-800">{vehicle.driver}</div>
-                            <div className="text-xs text-slate-400 font-medium">{vehicle.type}</div>
-                          </td>
-
-                          {}
-                          <td className="py-4 px-5 align-middle">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
-                              vehicle.status === 'En Route' 
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' 
-                                : vehicle.status === 'Idle'
-                                  ? 'bg-amber-50 text-amber-700 border-amber-200/60'
-                                  : 'bg-red-50 text-red-700 border-red-200/60'
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${
-                                vehicle.status === 'En Route' 
-                                  ? 'bg-emerald-500 animate-pulse' 
-                                  : vehicle.status === 'Idle'
-                                    ? 'bg-amber-500'
-                                    : 'bg-red-500'
-                              }`}></span>
-                              {vehicle.status}
-                            </span>
-                          </td>
-
-                          {}
-                          <td className="py-4 px-5 align-middle">
-                            <div className="flex items-center gap-2">
-                              <Battery className={`w-4.5 h-4.5 shrink-0 ${
-                                vehicle.fuel < 20 
-                                  ? 'text-red-500 animate-pulse' 
-                                  : vehicle.fuel < 50
-                                    ? 'text-amber-500'
-                                    : 'text-emerald-500'
-                              }`} />
-                              <div>
-                                <span className="font-semibold text-sm text-slate-800">{vehicle.fuel}%</span>
-                                <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1 border border-slate-200/20">
-                                  <div 
-                                    className={`h-full rounded-full transition-all duration-500 ${
-                                      vehicle.fuel < 20 ? 'bg-red-500' : vehicle.fuel < 50 ? 'bg-amber-500' : 'bg-emerald-500'
-                                    }`}
-                                    style={{ width: `${vehicle.fuel}%` }}
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {}
-                          <td className="py-4 px-5 align-middle">
-                            <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-sm">
-                              <Gauge className="w-3.5 h-3.5 text-slate-400" />
-                              {vehicle.speed > 0 ? `${vehicle.speed} mph` : 'Stopped'}
-                            </div>
-                            <div className="text-xs text-slate-400 font-medium flex items-center gap-0.5 mt-0.5">
-                              <MapPin className="w-3 h-3 shrink-0" />
-                              {vehicle.location}
-                            </div>
-                          </td>
-
-                          {}
-                          <td className="py-4 px-5 text-right align-middle">
-                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="py-12 text-center text-slate-400 font-medium">
-                        No active vehicles match the filter criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {}
-            <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex justify-between items-center text-xs text-slate-500 font-medium">
-              <span>Showing {filteredVehicles.length} of {vehicles.length} tracked assets</span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Autopoll Status: Active
-              </span>
-            </div>
-
-          </div>
-
-          {}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-            
-            {}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-5 flex flex-col h-[520px]">
-              
-              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
-                  <Activity className="w-4.5 h-4.5 text-blue-600" />
-                  Live Event Feed
-                </h3>
-                <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
-                  {logs.length} Logged
-                </span>
-              </div>
-
-              {}
-              <div className="flex-grow overflow-y-auto mt-4 space-y-3.5 pr-1">
-                {logs.map((log) => (
-                  <div key={log.id} className="text-xs border-b border-slate-50 pb-3 flex items-start gap-2.5 group">
-                    <span className="font-bold text-slate-400 bg-slate-50 border border-slate-100/50 px-1.5 py-0.5 rounded scale-95 uppercase text-[9px] mt-0.5 select-none font-mono">
-                      {log.timestamp}
-                    </span>
-                    <div className="flex-grow">
-                      <p className="text-slate-800 font-medium">
-                        <span className="font-bold text-slate-950 hover:underline cursor-pointer" onClick={() => setSelectedVehicleId(log.vehicleId)}>
-                          {log.vehicleId}
-                        </span>
-                        : {log.event}
-                      </p>
-                    </div>
-                    <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                      log.type === 'warning'
-                        ? 'bg-red-500'
-                        : log.type === 'success'
-                          ? 'bg-emerald-500'
-                          : 'bg-blue-500'
-                    }`} />
+              <form onSubmit={handleRegisterDriver} className="space-y-4">
+                {registerError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3.5 py-2.5 rounded-lg text-left font-medium">
+                    {registerError}
                   </div>
-                ))}
-              </div>
+                )}
+                {registerSuccess && (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3.5 py-2.5 rounded-lg text-left font-medium">
+                    {registerSuccess}
+                  </div>
+                )}
 
-              {}
-              <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                <span>Updated in real-time</span>
-                <button 
-                  onClick={() => {
-                    setLogs([{ id: 100, timestamp: 'Now', vehicleId: 'System', event: 'Cleared log terminal history', type: 'info' }]);
-                    showToast('Log history cleared', 'info');
-                  }}
-                  className="hover:text-red-600 transition-colors focus:outline-none cursor-pointer"
+                <div>
+                  <label htmlFor="reg-email" className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5 text-left">
+                    Driver Email / Login ID
+                  </label>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    placeholder="driver@company.com"
+                    value={registerEmail}
+                    onChange={(e) => setRegisterEmail(e.target.value)}
+                    className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-950 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="reg-pass" className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleGeneratePassword}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-705 focus:outline-none cursor-pointer"
+                    >
+                      Generate password
+                    </button>
+                  </div>
+                  <input
+                    id="reg-pass"
+                    type="text"
+                    placeholder="Enter or generate password"
+                    value={registerPassword}
+                    onChange={(e) => setRegisterPassword(e.target.value)}
+                    className="block w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-950 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={registerLoading}
+                  className="w-full inline-flex items-center justify-center px-4 py-3 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors cursor-pointer mt-2"
                 >
-                  Clear Feed
+                  {registerLoading ? 'Creating account...' : 'Create Driver Account'}
+                </button>
+              </form>
+            </div>
+
+            {/* Right: Driver List Card */}
+            <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col">
+              <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Registered Drivers</h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">List of active driver credentials in the database.</p>
+                </div>
+                <button
+                  onClick={fetchDrivers}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-all cursor-pointer bg-white"
+                >
+                  Refresh Directory
                 </button>
               </div>
 
+              <div className="overflow-x-auto">
+                {driversLoading ? (
+                  <div className="py-20 text-center text-slate-500 text-sm font-medium">
+                    <span className="inline-block animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full mr-2"></span>
+                    Loading driver registry...
+                  </div>
+                ) : drivers.length > 0 ? (
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200">
+                        <th className="py-3 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Driver Login ID (Email)</th>
+                        <th className="py-3 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Access Level</th>
+                        <th className="py-3 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Created On</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {drivers.map((drv, idx) => (
+                        <tr key={drv.email || idx} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-5 font-semibold text-sm text-slate-905">{drv.email}</td>
+                          <td className="py-3.5 px-5">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 capitalize">
+                              {drv.role}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-5 text-xs text-slate-500 font-medium">
+                            {new Date(drv.createdAt || Date.now()).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="py-20 text-center text-slate-400 text-sm font-medium">
+                    No registered drivers found in database.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+              
+              {}
+              <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Fleet Size</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-1">{stats.total} Vehicles</h3>
+                  <p className="text-[10px] text-slate-400 font-semibold mt-1 flex items-center gap-1">
+                    <TrendingUp className="w-3 h-3 text-emerald-500" /> 
+                    100% capacity tracked
+                  </p>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                  <Truck className="w-6 h-6" />
+                </div>
+              </div>
+
+              {}
+              <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Active (En Route)</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+                    {stats.enRoute}
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping inline-block"></span>
+                  </h3>
+                  <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+                    {Math.round((stats.enRoute / stats.total) * 100)}% active utilization
+                  </p>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                  <Activity className="w-6 h-6" />
+                </div>
+              </div>
+
+              {}
+              <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Idle (Available)</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-1">{stats.idle} Depot</h3>
+                  <p className="text-[10px] text-amber-600 font-semibold mt-1">
+                    Ready for route dispatch
+                  </p>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-amber-50 group-hover:text-amber-600 transition-colors">
+                  <Clock className="w-6 h-6" />
+                </div>
+              </div>
+
+              {}
+              <div className="bg-white p-5 border border-slate-200 rounded-2xl shadow-xs hover:shadow-md hover:border-slate-300/80 transition-all flex items-center justify-between group">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Under Maintenance</p>
+                  <h3 className="text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
+                    {stats.maintenance}
+                    {stats.activeAlerts > 0 && (
+                      <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded border border-red-200 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        {stats.activeAlerts} Issue{stats.activeAlerts > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[10px] text-red-500 font-semibold mt-1">
+                    Critical workshop bay diagnostics
+                  </p>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 p-3 rounded-xl text-slate-500 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
+                  <Wrench className="w-6 h-6" />
+                </div>
+              </div>
+
             </div>
 
-          </div>
+            {}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {}
+              <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-col overflow-hidden">
+                
+                {}
+                <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  
+                  {}
+                  <div className="relative w-full sm:max-w-xs">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <Search className="w-4 h-4" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search fleet, drivers, locations..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full text-slate-900 placeholder-slate-400 pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-slate-50/50"
+                    />
+                    {searchQuery && (
+                      <button 
+                        onClick={() => setSearchQuery('')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
 
-        </div>
+                  {}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {['All', 'En Route', 'Idle', 'Maintenance'].map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => setFilterStatus(status)}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                          filterStatus === status
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
 
+                </div>
+
+                {}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200">
+                        <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Vehicle ID</th>
+                        <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Operator / Type</th>
+                        <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                        <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Fuel / Battery</th>
+                        <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider">Speed / Location</th>
+                        <th className="py-3.5 px-5 text-xs font-bold text-slate-400 uppercase tracking-wider"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredVehicles.length > 0 ? (
+                        filteredVehicles.map((vehicle) => {
+                          const isSelected = selectedVehicleId === vehicle.id;
+                          return (
+                            <tr 
+                              key={vehicle.id}
+                              onClick={() => setSelectedVehicleId(vehicle.id)}
+                              className={`hover:bg-slate-50/60 transition-colors cursor-pointer group select-none ${
+                                isSelected ? 'bg-blue-50/40 hover:bg-blue-50/50' : ''
+                              }`}
+                            >
+                              {}
+                              <td className="py-4 px-5 align-middle">
+                                <span className="font-bold text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
+                                  {vehicle.id}
+                                </span>
+                                {vehicle.alerts.length > 0 && (
+                                  <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 border border-red-200">
+                                    !
+                                  </span>
+                                )}
+                              </td>
+
+                              {}
+                              <td className="py-4 px-5 align-middle">
+                                <div className="font-semibold text-sm text-slate-800">{vehicle.driver}</div>
+                                <div className="text-xs text-slate-400 font-medium">{vehicle.type}</div>
+                              </td>
+
+                              {}
+                              <td className="py-4 px-5 align-middle">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                                  vehicle.status === 'En Route' 
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60' 
+                                    : vehicle.status === 'Idle'
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200/60'
+                                      : 'bg-red-50 text-red-700 border-red-200/60'
+                                }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    vehicle.status === 'En Route' 
+                                      ? 'bg-emerald-500 animate-pulse' 
+                                      : vehicle.status === 'Idle'
+                                        ? 'bg-amber-500'
+                                        : 'bg-red-500'
+                                  }`}></span>
+                                  {vehicle.status}
+                                </span>
+                              </td>
+
+                              {}
+                              <td className="py-4 px-5 align-middle">
+                                <div className="flex items-center gap-2">
+                                  <Battery className={`w-4.5 h-4.5 shrink-0 ${
+                                    vehicle.fuel < 20 
+                                      ? 'text-red-500 animate-pulse' 
+                                      : vehicle.fuel < 50
+                                        ? 'text-amber-500'
+                                        : 'text-emerald-500'
+                                  }`} />
+                                  <div>
+                                    <span className="font-semibold text-sm text-slate-800">{vehicle.fuel}%</span>
+                                    <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1 border border-slate-200/20">
+                                      <div 
+                                        className={`h-full rounded-full transition-all duration-500 ${
+                                          vehicle.fuel < 20 ? 'bg-red-500' : vehicle.fuel < 50 ? 'bg-amber-500' : 'bg-emerald-500'
+                                        }`}
+                                        style={{ width: `${vehicle.fuel}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {}
+                              <td className="py-4 px-5 align-middle">
+                                <div className="flex items-center gap-1.5 text-slate-700 font-semibold text-sm">
+                                  <Gauge className="w-3.5 h-3.5 text-slate-400" />
+                                  {vehicle.speed > 0 ? `${vehicle.speed} mph` : 'Stopped'}
+                                </div>
+                                <div className="text-xs text-slate-400 font-medium flex items-center gap-0.5 mt-0.5">
+                                  <MapPin className="w-3 h-3 shrink-0" />
+                                  {vehicle.location}
+                                </div>
+                              </td>
+
+                              {}
+                              <td className="py-4 px-5 text-right align-middle">
+                                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="6" className="py-12 text-center text-slate-400 font-medium">
+                            No active vehicles match the filter criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {}
+                <div className="p-4 border-t border-slate-200 bg-slate-50/50 flex justify-between items-center text-xs text-slate-500 font-medium">
+                  <span>Showing {filteredVehicles.length} of {vehicles.length} tracked assets</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    Autopoll Status: Active
+                  </span>
+                </div>
+
+              </div>
+
+              {}
+              <div className="lg:col-span-4 flex flex-col gap-6">
+                
+                {}
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-xs p-5 flex flex-col h-[520px]">
+                  
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                    <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                      <Activity className="w-4.5 h-4.5 text-blue-600" />
+                      Live Event Feed
+                    </h3>
+                    <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">
+                      {logs.length} Logged
+                    </span>
+                  </div>
+
+                  {}
+                  <div className="flex-grow overflow-y-auto mt-4 space-y-3.5 pr-1">
+                    {logs.map((log) => (
+                      <div key={log.id} className="text-xs border-b border-slate-55 pb-3 flex items-start gap-2.5 group">
+                        <span className="font-bold text-slate-400 bg-slate-50 border border-slate-100/50 px-1.5 py-0.5 rounded scale-95 uppercase text-[9px] mt-0.5 select-none font-mono">
+                          {log.timestamp}
+                        </span>
+                        <div className="flex-grow">
+                          <p className="text-slate-800 font-medium">
+                            <span className="font-bold text-slate-950 hover:underline cursor-pointer" onClick={() => setSelectedVehicleId(log.vehicleId)}>
+                              {log.vehicleId}
+                            </span>
+                            : {log.event}
+                          </p>
+                        </div>
+                        <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
+                          log.type === 'warning'
+                            ? 'bg-red-500'
+                            : log.type === 'success'
+                              ? 'bg-emerald-500'
+                              : 'bg-blue-500'
+                        }`} />
+                      </div>
+                    ))}
+                  </div>
+
+                  {}
+                  <div className="pt-3 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    <span>Updated in real-time</span>
+                    <button 
+                      onClick={() => {
+                        setLogs([{ id: 100, timestamp: 'Now', vehicleId: 'System', event: 'Cleared log terminal history', type: 'info' }]);
+                        showToast('Log history cleared', 'info');
+                      }}
+                      className="hover:text-red-600 transition-colors focus:outline-none cursor-pointer"
+                    >
+                      Clear Feed
+                    </button>
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </>
+        )}
       </div>
 
       {}

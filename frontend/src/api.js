@@ -118,5 +118,26 @@ export const api = {
       body: JSON.stringify(incidentData)
     });
     return handleResponse(response);
+  },
+
+  async registerDriver(driverData, adminRole) {
+    const response = await fetch(`${API_BASE}/auth/register-driver?role=${adminRole}`, {
+      method: 'POST',
+      headers: getAuthHeaders({ 
+        'Content-Type': 'application/json',
+        'x-user-role': adminRole
+      }),
+      body: JSON.stringify(driverData)
+    });
+    return handleResponse(response);
+  },
+
+  async getDrivers(adminRole) {
+    const response = await fetch(`${API_BASE}/drivers?role=${adminRole}`, {
+      headers: getAuthHeaders({
+        'x-user-role': adminRole
+      })
+    });
+    return handleResponse(response);
   }
 };
