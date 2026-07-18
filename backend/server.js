@@ -24,6 +24,25 @@ const MONGODB_URI = process.env.MONGODB_URI;
 app.use(cors());
 app.use(express.json());
 
+let dbConnectionError = null;
+
+// Database connection middleware to ensure connection on serverless functions
+const connectDbMiddleware = async (req, res, next) => {
+  if (MONGODB_URI && mongoose.connection.readyState !== 1) {
+    console.log(`Connecting to MongoDB... Current state: ${mongoose.connection.readyState}`);
+    try {
+      await mongoose.connect(MONGODB_URI);
+      dbConnectionError = null;
+    } catch (err) {
+      console.error('❌ Database connection middleware error:', err.message);
+      dbConnectionError = err.message;
+    }
+  }
+  next();
+};
+
+app.use(connectDbMiddleware);
+
 // Verify MongoDB URI is present and connect
 if (!MONGODB_URI) {
   console.warn('⚠️ MONGODB_URI is not defined in the environment variables. The server will run in fallback in-memory mode or wait for configuration.');
@@ -31,10 +50,12 @@ if (!MONGODB_URI) {
   mongoose.connect(MONGODB_URI)
     .then(async () => {
       console.log('✅ Connected to MongoDB Atlas successfully.');
+      dbConnectionError = null;
       await seedDatabase();
     })
     .catch(err => {
       console.error('❌ MongoDB connection error:', err.message);
+      dbConnectionError = err.message;
     });
 }
 
@@ -126,6 +147,9 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    databaseState: mongoose.connection.readyState,
+    hasMongoUri: !!MONGODB_URI,
+    connectionError: dbConnectionError,
     timestamp: new Date(),
     uptime: process.uptime()
   });
