@@ -202,9 +202,9 @@ app.post('/api/auth/register-driver', verifyRole(['admin']), validateRegister, a
   const { email, password } = req.body;
   const emailLower = email.toLowerCase();
 
-  // Handle in-memory fallback if MongoDB is not connected
-  if (mongoose.connection.readyState !== 1) {
-    console.log('MongoDB not connected. Using in-memory fallback for driver registration.');
+  // Handle in-memory fallback if MongoDB is not configured
+  if (!MONGODB_URI) {
+    console.log('MongoDB not configured. Using in-memory fallback for driver registration.');
     const added = addMockUser(emailLower, password, 'driver');
     if (!added) {
       return res.status(400).json({ error: 'A user with this email is already registered.' });
@@ -249,8 +249,8 @@ app.post('/api/auth/register-driver', verifyRole(['admin']), validateRegister, a
 
 // Drivers List Endpoint (Admin & Manager)
 app.get('/api/drivers', verifyRole(['admin', 'manager']), async (req, res) => {
-  // Handle in-memory fallback if MongoDB is not connected
-  if (mongoose.connection.readyState !== 1) {
+  // Handle in-memory fallback if MongoDB is not configured
+  if (!MONGODB_URI) {
     const drivers = MOCK_USERS.filter(u => u.role === 'driver').map(u => ({
       email: u.email,
       role: u.role,
@@ -604,8 +604,8 @@ app.get('/api/reports/export-csv', verifyRole(['admin', 'manager']), async (req,
   try {
     let reports = [];
     
-    if (mongoose.connection.readyState !== 1) {
-      console.log('MongoDB not connected. Using MOCK_REPORT_DATA in-memory fallback for CSV export.');
+    if (!MONGODB_URI) {
+      console.log('MongoDB not configured. Using MOCK_REPORT_DATA in-memory fallback for CSV export.');
       const now = new Date();
       if (range === 'today') {
         reports = MOCK_REPORT_DATA.filter(item => {

@@ -51,9 +51,9 @@ export async function loginUser(req, res) {
     return res.status(400).json({ error: 'Please provide email and password.' });
   }
 
-  // Fallback to in-memory user check if MongoDB is not connected
-  if (mongoose.connection.readyState !== 1) {
-    console.log('MongoDB not connected. Using in-memory user fallback.');
+  // Fallback to in-memory user check if MongoDB is not configured
+  if (!process.env.MONGODB_URI) {
+    console.log('MongoDB not configured. Using in-memory user fallback.');
     const user = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials. Access Denied.' });
