@@ -57,36 +57,40 @@ export default function Login({ onNavigate, onLogin }) {
           }
         }, 1000);
       } catch (err) {
-        
-        console.warn('Backend authentication failed, falling back to local credentials: ', err.message);
-        setTimeout(() => {
-          setIsLoading(false);
-          const emailLower = email.toLowerCase();
-          const isAdmin = emailLower.includes('admin');
-          const isManager = emailLower.includes('manager');
-          const isDriver = emailLower.includes('driver');
+        setIsLoading(false);
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-          if (
-            (isAdmin && emailLower === DEMO_ADMIN.email && password === DEMO_ADMIN.password) ||
-            (isManager && emailLower === DEMO_MANAGER.email && password === DEMO_MANAGER.password) ||
-            (isDriver && emailLower === DEMO_DRIVER.email && password === DEMO_DRIVER.password) ||
-            (!isAdmin && !isManager && !isDriver) 
-          ) {
-            setSuccess(true);
-            setTimeout(() => {
-              let role = 'driver';
-              if (isAdmin) role = 'admin';
-              if (isManager) role = 'manager';
-              if (onLogin) {
-                onLogin({ email, role });
-              } else {
-                onNavigate('home');
-              }
-            }, 1000);
-          } else {
-            setError('Invalid email or password.');
-          }
-        }, 1500);
+        // If not localhost or if the backend explicitly rejected credentials (401), show error directly.
+        if (!isLocalhost || err.message === 'Invalid credentials. Access Denied.') {
+          setError(err.message || 'Authentication failed. Please check your credentials.');
+          return;
+        }
+
+        console.warn('Backend connection failed, trying demo offline credentials: ', err.message);
+        const emailLower = email.toLowerCase();
+        const isAdmin = emailLower === DEMO_ADMIN.email;
+        const isManager = emailLower === DEMO_MANAGER.email;
+        const isDriver = emailLower === DEMO_DRIVER.email;
+
+        if (
+          (isAdmin && password === DEMO_ADMIN.password) ||
+          (isManager && password === DEMO_MANAGER.password) ||
+          (isDriver && password === DEMO_DRIVER.password)
+        ) {
+          setSuccess(true);
+          setTimeout(() => {
+            let role = 'driver';
+            if (isAdmin) role = 'admin';
+            if (isManager) role = 'manager';
+            if (onLogin) {
+              onLogin({ email, role });
+            } else {
+              onNavigate('home');
+            }
+          }, 1000);
+        } else {
+          setError('Invalid email or password.');
+        }
       }
     };
 
