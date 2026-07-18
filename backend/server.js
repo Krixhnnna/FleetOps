@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import User from './models/User.js';
 import Vehicle from './models/Vehicle.js';
@@ -14,8 +16,17 @@ import Query from './models/Query.js';
 import { verifyRole, loginUser, MOCK_USERS, addMockUser } from './auth.js';
 import { validateLogin, validateRegister } from './validators.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
+// Disable mongoose command buffering globally so queries fail fast on connection errors
+mongoose.set('bufferCommands', false);
+
+// Try loading environment variables from process.cwd() first, fallback to backend/.env relative to this file
 dotenv.config();
+if (!process.env.MONGODB_URI) {
+  dotenv.config({ path: path.resolve(__dirname, '.env') });
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,7 +64,7 @@ let dbConnectionError = null;
 
 // Database connection middleware to ensure connection on serverless functions
 const connectDbMiddleware = async (req, res, next) => {
-  if (MONGODB_URI && mongoose.connection.readyState !== 1) {
+  if (MONGODB_URI && mongoose.connection.readyState === 0) {
     console.log(`Connecting to MongoDB... Current state: ${mongoose.connection.readyState}`);
     try {
       await mongoose.connect(MONGODB_URI);
@@ -62,6 +73,22 @@ const connectDbMiddleware = async (req, res, next) => {
       console.error('❌ Database connection middleware error:', err.message);
       dbConnectionError = err.message;
     }
+  }
+
+  // If connection is in state 2 (connecting), wait up to 3 seconds for it to establish
+  if (mongoose.connection.readyState === 2) {
+    let checkCount = 0;
+    while (mongoose.connection.readyState === 2 && checkCount < 30) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      checkCount++;
+    }
+  }
+
+  // If database connection is not established, fail fast instead of letting queries hang
+  if (MONGODB_URI && mongoose.connection.readyState !== 1) {
+    return res.status(500).json({
+      error: `Database connection error: Connection state is ${mongoose.connection.readyState}. Details: ${dbConnectionError || 'Unknown connection error. Please ensure your IP address is whitelisted in MongoDB Atlas Network Access.'}`
+    });
   }
   next();
 };
@@ -80,7 +107,7 @@ if (!MONGODB_URI) {
     })
     .catch(err => {
       console.error('❌ MongoDB connection error:', err.message);
-      dbConnectionError = err.message;
+      dbConnectionError = `${err.message}. Ensure that your IP is whitelisted in your MongoDB Atlas console.`;
     });
 }
 
