@@ -1,15 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 
 export default function Hero({ onNavigate }) {
-  // Mock data for the realistic dashboard preview
-  const stats = [
-    { label: 'Deliveries Completed', value: '1,424', total: 'today' },
-    { label: 'On-Time Delivery Rate', value: '99.42%', total: 'SLA target 98%' },
-    { label: 'Customer CSAT', value: '4.95', total: 'out of 5.0' }
-  ];
-
-
-
   return (
     <section className="relative overflow-hidden bg-white pt-12 pb-20 md:pt-20 md:pb-28">
       {/* Subtle grid pattern background for technical feel */}
@@ -49,47 +40,69 @@ export default function Hero({ onNavigate }) {
             </div>
           </div>
 
-          {/* Right Column: High Fidelity Dashboard Preview */}
+          {/* Right Column: High Fidelity Dashboard Preview (Revived with real project specs) */}
           <div className="lg:col-span-7 w-full">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl shadow-lg p-1.5 md:p-3 overflow-hidden select-none">
+            <div className="bg-slate-50 border border-slate-200 rounded-xl shadow-lg p-3 md:p-5 overflow-hidden select-none">
               
-              {/* Fake Application Frame Header */}
-              <div className="flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-xs mb-3">
-                <div className="flex items-center gap-4">
+              {/* macOS Window Frame Header */}
+              <div className="flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-2xs mb-4">
+                <div className="flex items-center gap-3">
                   {/* Status Indicator */}
                   <div className="flex items-center gap-2">
-                    <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-xs font-semibold text-slate-700 tracking-tight">fleetops-control-tower</span>
                   </div>
-                  <span className="hidden sm:inline text-xs text-slate-400">|</span>
-                  {/* Fake Breadcrumb */}
-                  <span className="hidden sm:inline text-xs font-mono text-slate-400">HQ-Logistics-West</span>
+                  <span className="text-xs text-slate-300">|</span>
+                  <span className="text-[10px] font-mono text-slate-400">HQ-Logistics-West</span>
                 </div>
                 {/* Window Actions */}
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-400 border border-rose-500/20" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-500/20" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-emerald-500/20" />
                 </div>
               </div>
 
-              {/* Stats Grid inside the preview */}
+              {/* Stats Grid - 3 Premium Portal Highlight Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {stats.map((stat, i) => (
-                  <div key={i} className="bg-white border border-slate-200 rounded-lg p-5 text-left shadow-sm">
-                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider truncate">
-                      {stat.label}
-                    </p>
-                    <div className="flex items-baseline gap-1 mt-2">
-                      <span className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                        {stat.value}
-                      </span>
-                      <span className="text-[11px] text-slate-500 font-medium ml-1">
-                        / {stat.total}
-                      </span>
-                    </div>
+                {/* Card 1: Manager Portal */}
+                <div className="bg-white border border-slate-200 rounded-xl p-5 text-left shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                  <span className="text-[9px] uppercase font-bold text-blue-600 tracking-wider">
+                    Control Tower
+                  </span>
+                  <div className="text-lg font-bold text-slate-800 tracking-tight mt-1">
+                    Manager Portal
                   </div>
-                ))}
+                  <p className="text-[11px] text-slate-500 leading-normal mt-2">
+                    Monitor telemetry, dispatch repair units, and oversee live vehicle status.
+                  </p>
+                </div>
+
+                {/* Card 2: Driver Portal */}
+                <div className="bg-white border border-slate-200 rounded-xl p-5 text-left shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                  <span className="text-[9px] uppercase font-bold text-emerald-600 tracking-wider">
+                    On-The-Road
+                  </span>
+                  <div className="text-lg font-bold text-slate-800 tracking-tight mt-1">
+                    Driver Console
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-normal mt-2">
+                    Claim active vehicles, start/end shift logs, and report road incidents.
+                  </p>
+                </div>
+
+                {/* Card 3: Admin Reports */}
+                <div className="bg-white border border-slate-200 rounded-xl p-5 text-left shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+                  <span className="text-[9px] uppercase font-bold text-indigo-600 tracking-wider">
+                    Compliance Hub
+                  </span>
+                  <div className="text-lg font-bold text-slate-800 tracking-tight mt-1">
+                    Admin Center
+                  </div>
+                  <p className="text-[11px] text-slate-500 leading-normal mt-2">
+                    Manage credentials, audit driver rosters, and export custom CSV reports.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
