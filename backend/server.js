@@ -26,6 +26,24 @@ if (MONGODB_URI) {
     MONGODB_URI = MONGODB_URI.substring('mongodb_uri='.length).trim();
   }
   MONGODB_URI = MONGODB_URI.replace(/^['"=\s]+|['"\s]+$/g, '');
+
+  // Auto-correct missing .mongodb.net suffix in the cluster hostname
+  if (MONGODB_URI.includes('@') && !MONGODB_URI.includes('.mongodb.net') && !MONGODB_URI.includes('localhost') && !MONGODB_URI.includes('127.0.0.1')) {
+    const parts = MONGODB_URI.split('@');
+    const hostAndRest = parts[1];
+    const slashIdx = hostAndRest.indexOf('/');
+    const questIdx = hostAndRest.indexOf('?');
+    let endIdx = hostAndRest.length;
+    if (slashIdx !== -1 && questIdx !== -1) endIdx = Math.min(slashIdx, questIdx);
+    else if (slashIdx !== -1) endIdx = slashIdx;
+    else if (questIdx !== -1) endIdx = questIdx;
+    
+    const host = hostAndRest.substring(0, endIdx);
+    const rest = hostAndRest.substring(endIdx);
+    if (!host.endsWith('.mongodb.net')) {
+      MONGODB_URI = `${parts[0]}@${host}.mongodb.net${rest}`;
+    }
+  }
 }
 
 app.use(cors());
