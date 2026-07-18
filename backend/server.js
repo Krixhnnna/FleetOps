@@ -153,11 +153,14 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
   const uriSnippet = MONGODB_URI ? `${MONGODB_URI.substring(0, 15)}... [length: ${MONGODB_URI.length}]` : null;
   let hostPart = null;
+  let sanitizedUri = null;
   if (MONGODB_URI) {
     const parts = MONGODB_URI.split('@');
     if (parts.length > 1) {
       hostPart = parts[1].split('/')[0].split('?')[0];
     }
+    // Replace password with asterisks: mongodb+srv://username:password@host/db -> mongodb+srv://username:****@host/db
+    sanitizedUri = MONGODB_URI.replace(/:([^:@]+)@/, ':****@');
   }
   res.json({
     status: 'healthy',
@@ -166,6 +169,7 @@ app.get('/api/health', (req, res) => {
     hasMongoUri: !!MONGODB_URI,
     mongoUriSnippet: uriSnippet,
     mongoUriHost: hostPart,
+    mongoUriSanitized: sanitizedUri,
     connectionError: dbConnectionError,
     timestamp: new Date(),
     uptime: process.uptime()
