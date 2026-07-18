@@ -152,12 +152,20 @@ app.get('/', (req, res) => {
 
 app.get('/api/health', (req, res) => {
   const uriSnippet = MONGODB_URI ? `${MONGODB_URI.substring(0, 15)}... [length: ${MONGODB_URI.length}]` : null;
+  let hostPart = null;
+  if (MONGODB_URI) {
+    const parts = MONGODB_URI.split('@');
+    if (parts.length > 1) {
+      hostPart = parts[1].split('/')[0].split('?')[0];
+    }
+  }
   res.json({
     status: 'healthy',
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     databaseState: mongoose.connection.readyState,
     hasMongoUri: !!MONGODB_URI,
     mongoUriSnippet: uriSnippet,
+    mongoUriHost: hostPart,
     connectionError: dbConnectionError,
     timestamp: new Date(),
     uptime: process.uptime()
