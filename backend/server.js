@@ -21,7 +21,11 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 let MONGODB_URI = process.env.MONGODB_URI;
 if (MONGODB_URI) {
-  MONGODB_URI = MONGODB_URI.trim().replace(/^['"]|['"]$/g, '');
+  MONGODB_URI = MONGODB_URI.trim();
+  if (MONGODB_URI.toLowerCase().startsWith('mongodb_uri=')) {
+    MONGODB_URI = MONGODB_URI.substring('mongodb_uri='.length).trim();
+  }
+  MONGODB_URI = MONGODB_URI.replace(/^['"=\s]+|['"\s]+$/g, '');
 }
 
 app.use(cors());
